@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Brake Force & Ideal Curve</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="utils.js"></script>
+  <script src="setup.js"></script>
+  <link rel="stylesheet" href="shared.css">
+  <style>
+    .field input, .field select { max-width: 120px; }
+    .brake-section { margin-top: 1rem; }
+    .brake-section:first-of-type { margin-top: 0; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <a href="index.html" class="back-link">Index</a>
+    <h1>Brake force & ideal curve</h1>
+  </div>
+  <div class="layout wide">
+    <div class="panel">
+      <h2>Vehicle</h2>
+      <div class="inputs">
+        <div class="field">
+          <label for="m">Weight (lb)</label>
+          <input type="number" id="m" value="1951" step="1" min="1">
+        </div>
+        <div class="field">
+          <label for="beta">Front weight bias</label>
+          <input type="number" id="beta" value="0.397" step="0.001" min="0" max="1">
+        </div>
+        <div class="field">
+          <label for="l-mm">Wheelbase (mm)</label>
+          <input type="number" id="l-mm" value="2300" step="1" min="1">
+        </div>
+        <div class="field">
+          <label for="h-mm">CG height (mm)</label>
+          <input type="number" id="h-mm" value="442" step="1" min="1">
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Brake Input</h2>
+      <div class="inputs">
+        <div class="field">
+          <label for="pedal-force-lb">Pedal force (lb)</label>
+          <input type="number" id="pedal-force-lb" value="60" step="1" min="0">
+        </div>
+        <div class="field">
+          <label for="pedal-ratio">Pedal ratio</label>
+          <input type="number" id="pedal-ratio" value="5" step="0.1" min="0.1">
+        </div>
+        <div class="field">
+          <label for="booster-ratio">Booster ratio</label>
+          <input type="number" id="booster-ratio" value="3" step="0.1" min="0">
+        </div>
+        <div class="field">
+          <label for="mc-front-d-in">MC front &Oslash; (in)</label>
+          <input type="number" id="mc-front-d-in" value="0.75" step="0.01" min="0.01">
+        </div>
+        <div class="field">
+          <label for="mc-rear-d-in">MC rear &Oslash; (in)</label>
+          <input type="number" id="mc-rear-d-in" value="0.75" step="0.01" min="0.01">
+        </div>
+        <div class="field">
+          <label for="balance-bar-split">Balance bar split</label>
+          <input type="number" id="balance-bar-split" value="0.5" step="0.01" min="0" max="1">
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Front</h2>
+      <div class="brake-section">
+        <h3>Brakes</h3>
+        <div class="inputs">
+          <div class="field field-preset">
+            <label for="front-preset">Preset</label>
+            <select id="front-preset">
+              <option value="">Custom</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="pist1-front-d-mm">Piston 1 (mm)</label>
+            <input type="number" id="pist1-front-d-mm" value="31.75" step="0.01" min="0">
+          </div>
+          <div class="field">
+            <label for="pist2-front-d-mm">Piston 2 (mm)</label>
+            <input type="number" id="pist2-front-d-mm" value="31.75" step="0.01" min="0">
+          </div>
+          <div class="field">
+            <label for="rotor-front-d-mm">Rotor &Oslash; (mm)</label>
+            <input type="number" id="rotor-front-d-mm" value="288" step="1" min="1">
+          </div>
+          <div class="field">
+            <label for="pad-front-height-mm">Pad height (mm)</label>
+            <input type="number" id="pad-front-height-mm" value="44" step="0.1" min="0">
+          </div>
+          <div class="field">
+            <label for="front-mu">Pad &mu;</label>
+            <input type="number" id="front-mu" value="0.47" step="0.01" min="0">
+          </div>
+        </div>
+      </div>
+      <div class="brake-section">
+        <h3>Tire</h3>
+        <div class="inputs">
+          <div class="field">
+            <label for="tire-front-section-width-mm">Section (mm)</label>
+            <input type="number" id="tire-front-section-width-mm" value="205" step="1" min="1">
+          </div>
+          <div class="field">
+            <label for="tire-front-aspect-ratio">Aspect %</label>
+            <input type="number" id="tire-front-aspect-ratio" value="50" step="1" min="1">
+          </div>
+          <div class="field">
+            <label for="tire-front-rim-d-in">Rim (in)</label>
+            <input type="number" id="tire-front-rim-d-in" value="15" step="0.5" min="1">
+          </div>
+          <div class="field">
+            <label for="k-tire-front">Stiffness (N/m)</label>
+            <input type="number" id="k-tire-front" value="200000" step="1000" min="1000">
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Rear</h2>
+      <div class="brake-section">
+        <h3>Brakes</h3>
+        <div class="inputs">
+          <div class="field field-preset">
+            <label for="rear-preset">Preset</label>
+            <select id="rear-preset">
+              <option value="">Custom</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="pist1-rear-d-mm">Piston 1 (mm)</label>
+            <input type="number" id="pist1-rear-d-mm" value="38.1" step="0.01" min="0">
+          </div>
+          <div class="field">
+            <label for="pist2-rear-d-mm">Piston 2 (mm)</label>
+            <input type="number" id="pist2-rear-d-mm" value="0" step="0.01" min="0">
+          </div>
+          <div class="field">
+            <label for="rotor-rear-d-mm">Rotor &Oslash; (mm)</label>
+            <input type="number" id="rotor-rear-d-mm" value="288" step="1" min="1">
+          </div>
+          <div class="field">
+            <label for="pad-rear-height-mm">Pad height (mm)</label>
+            <input type="number" id="pad-rear-height-mm" value="47.3" step="0.1" min="0">
+          </div>
+          <div class="field">
+            <label for="rear-mu">Pad &mu;</label>
+            <input type="number" id="rear-mu" value="0.42" step="0.01" min="0">
+          </div>
+        </div>
+      </div>
+      <div class="brake-section">
+        <h3>Tire</h3>
+        <div class="inputs">
+          <div class="field">
+            <label for="tire-rear-section-width-mm">Section (mm)</label>
+            <input type="number" id="tire-rear-section-width-mm" value="245" step="1" min="1">
+          </div>
+          <div class="field">
+            <label for="tire-rear-aspect-ratio">Aspect %</label>
+            <input type="number" id="tire-rear-aspect-ratio" value="40" step="1" min="1">
+          </div>
+          <div class="field">
+            <label for="tire-rear-rim-d-in">Rim (in)</label>
+            <input type="number" id="tire-rear-rim-d-in" value="17" step="0.5" min="1">
+          </div>
+          <div class="field">
+            <label for="k-tire-rear">Stiffness (N/m)</label>
+            <input type="number" id="k-tire-rear" value="200000" step="1000" min="1000">
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <p class="results" id="results"></p>
+      <div class="chart-wrap">
+        <canvas id="chart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const FRONT_PRESETS = [
+      { name: 'AP Racing Cup', pist1_front_d_mm: 31.75, pist2_front_d_mm: 36, rotor_front_d_mm: 308, pad_front_height_mm: 46, front_mu: 0.42 },
+      { name: 'AP Racing 44mm (Stock)', pist1_front_d_mm: 44.4, pist2_front_d_mm: 0, rotor_front_d_mm: 288, pad_front_height_mm: 47.3, front_mu: 0.42 },
+      { name: 'AP Racing Radical CP9444', pist1_front_d_mm: 34.9, pist2_front_d_mm: 41.3, rotor_front_d_mm: 288, pad_front_height_mm: 42, front_mu: 0.42 },
+      { name: 'Radical CP9445', pist1_front_d_mm: 31.75, pist2_front_d_mm: 38.1, rotor_front_d_mm: 288, pad_front_height_mm: 42, front_mu: 0.42 },
+      { name: 'Wilwood 120-11783', pist1_front_d_mm: 31.75, pist2_front_d_mm: 31.75, rotor_front_d_mm: 288, pad_front_height_mm: 44, front_mu: 0.42 }
+    ];
+
+    const REAR_PRESETS = [
+      { name: 'Brembo Sliding (Stock)', pist1_rear_d_mm: 36, pist2_rear_d_mm: 0, rotor_rear_d_mm: 288, pad_rear_height_mm: 40.3, rear_mu: 0.42 },
+      { name: 'AP Racing CP5316 38mm', pist1_rear_d_mm: 38.1, pist2_rear_d_mm: 0, rotor_rear_d_mm: 288, pad_rear_height_mm: 47.3, rear_mu: 0.42 },
+      { name: 'AP Racing CP5317 41mm', pist1_rear_d_mm: 41.3, pist2_rear_d_mm: 0, rotor_rear_d_mm: 288, pad_rear_height_mm: 47.3, rear_mu: 0.42 },
+      { name: 'AP Racing 44mm (Stock Front)', pist1_rear_d_mm: 44.4, pist2_rear_d_mm: 0, rotor_rear_d_mm: 288, pad_rear_height_mm: 47.3, rear_mu: 0.42 },
+      { name: 'Wilwood 120-11782', pist1_rear_d_mm: 28.448, pist2_rear_d_mm: 28.448, rotor_rear_d_mm: 288, pad_rear_height_mm: 44, rear_mu: 0.42 }
+    ];
+
+    function getParams() {
+      const m = num('m') * LB_TO_KG;
+      const g = G;
+      const beta = num('beta');
+      const L_mm = num('l-mm');
+      const h_mm = num('h-mm');
+      const L = L_mm / 1000;
+      const h = h_mm / 1000;
+      const e = h / L;
+
+      const pedal_force_lb = num('pedal-force-lb');
+      const pedal_ratio = num('pedal-ratio');
+      const booster_ratio = num('booster-ratio');
+      const mc_front_d_in = num('mc-front-d-in');
+      const mc_rear_d_in = num('mc-rear-d-in');
+      const balance_bar_split = num('balance-bar-split');
+
+      const pist1_front_d_mm = num('pist1-front-d-mm');
+      const pist2_front_d_mm = num('pist2-front-d-mm');
+      const pist1_rear_d_mm = num('pist1-rear-d-mm');
+      const pist2_rear_d_mm = num('pist2-rear-d-mm');
+
+      const rotor_front_d_mm = num('rotor-front-d-mm');
+      const rotor_rear_d_mm = num('rotor-rear-d-mm');
+      const pad_front_height_mm = num('pad-front-height-mm');
+      const pad_rear_height_mm = num('pad-rear-height-mm');
+      const front_mu = num('front-mu');
+      const rear_mu = num('rear-mu');
+
+      const tire_front_section_width_mm = num('tire-front-section-width-mm');
+      const tire_front_aspect_ratio = num('tire-front-aspect-ratio');
+      const tire_front_rim_d_in = num('tire-front-rim-d-in');
+      const tire_rear_section_width_mm = num('tire-rear-section-width-mm');
+      const tire_rear_aspect_ratio = num('tire-rear-aspect-ratio');
+      const tire_rear_rim_d_in = num('tire-rear-rim-d-in');
+      const k_tire_front = num('k-tire-front');
+      const k_tire_rear = num('k-tire-rear');
+
+      return {
+        m, g, beta, L, h, e,
+        pedal_force_lb, pedal_ratio, booster_ratio, mc_front_d_in, mc_rear_d_in, balance_bar_split,
+        pist1_front_d_mm, pist2_front_d_mm, pist1_rear_d_mm, pist2_rear_d_mm,
+        rotor_front_d_mm, rotor_rear_d_mm, pad_front_height_mm, pad_rear_height_mm, front_mu, rear_mu,
+        tire_front_section_width_mm, tire_front_aspect_ratio, tire_front_rim_d_in,
+        tire_rear_section_width_mm, tire_rear_aspect_ratio, tire_rear_rim_d_in,
+        k_tire_front, k_tire_rear
+      };
+    }
+
+    function compute(p) {
+      const pedal_force_N = p.pedal_force_lb * LB_TO_N;
+      const F_total_MC = pedal_force_N * p.pedal_ratio * p.booster_ratio;
+      const F_MC_F = F_total_MC * p.balance_bar_split;
+      const F_MC_R = F_total_MC * (1 - p.balance_bar_split);
+
+      const mc_front_d_m = p.mc_front_d_in * IN_TO_M;
+      const mc_rear_d_m = p.mc_rear_d_in * IN_TO_M;
+      const A_MC_F = Math.PI * (mc_front_d_m / 2) ** 2;
+      const A_MC_R = Math.PI * (mc_rear_d_m / 2) ** 2;
+
+      const P_F = F_MC_F / A_MC_F;
+      const P_R = F_MC_R / A_MC_R;
+
+      const pist1_front_d_m = p.pist1_front_d_mm / 1000;
+      const pist2_front_d_m = p.pist2_front_d_mm / 1000;
+      const pist1_rear_d_m = p.pist1_rear_d_mm / 1000;
+      const pist2_rear_d_m = p.pist2_rear_d_mm / 1000;
+
+      const A_F_per_caliper = Math.PI * (pist1_front_d_m / 2) ** 2 + Math.PI * (pist2_front_d_m / 2) ** 2;
+      const A_R_per_caliper = Math.PI * (pist1_rear_d_m / 2) ** 2 + Math.PI * (pist2_rear_d_m / 2) ** 2;
+
+      const rotor_front_r_m = (p.rotor_front_d_mm / 2) / 1000;
+      const rotor_rear_r_m = (p.rotor_rear_d_mm / 2) / 1000;
+      const pad_front_r_out = rotor_front_r_m;
+      const pad_front_r_in = rotor_front_r_m - (p.pad_front_height_mm / 1000);
+      const pad_rear_r_out = rotor_rear_r_m;
+      const pad_rear_r_in = rotor_rear_r_m - (p.pad_rear_height_mm / 1000);
+
+      const r_eff_F = (2/3) * (pad_front_r_out**3 - pad_front_r_in**3) / (pad_front_r_out**2 - pad_front_r_in**2);
+      const r_eff_R = (2/3) * (pad_rear_r_out**3 - pad_rear_r_in**3) / (pad_rear_r_out**2 - pad_rear_r_in**2);
+
+      const T_F_per_caliper = 2 * p.front_mu * P_F * A_F_per_caliper * r_eff_F;
+      const T_R_per_caliper = 2 * p.rear_mu * P_R * A_R_per_caliper * r_eff_R;
+      const T_F_total = 2 * T_F_per_caliper;
+      const T_R_total = 2 * T_R_per_caliper;
+
+      const rim_front_d_m = p.tire_front_rim_d_in * IN_TO_M;
+      const sidewall_front_h_m = (p.tire_front_aspect_ratio / 100) * (p.tire_front_section_width_mm / 1000);
+      const r_tire_front_static = (rim_front_d_m + 2 * sidewall_front_h_m) / 2;
+
+      const rim_rear_d_m = p.tire_rear_rim_d_in * IN_TO_M;
+      const sidewall_rear_h_m = (p.tire_rear_aspect_ratio / 100) * (p.tire_rear_section_width_mm / 1000);
+      const r_tire_rear_static = (rim_rear_d_m + 2 * sidewall_rear_h_m) / 2;
+
+      const Fz_front_static = p.beta * p.m * p.g;
+      const Fz_rear_static = (1 - p.beta) * p.m * p.g;
+      const delta_r_front = Fz_front_static / p.k_tire_front;
+      const delta_r_rear = Fz_rear_static / p.k_tire_rear;
+      const r_tire_front = r_tire_front_static - delta_r_front;
+      const r_tire_rear = r_tire_rear_static - delta_r_rear;
+
+      const front_max_actual = T_F_total / r_tire_front;
+      const rear_max_actual = T_R_total / r_tire_rear;
+      const front_bias_pct = 100 * front_max_actual / (front_max_actual + rear_max_actual);
+
+      const d_max = (1 - p.beta) / p.e;
+      const d_curve = [];
+      for (let i = 0; i <= 100; i++) d_curve.push((i / 100) * d_max);
+      const front_force = d_curve.map(d => d * p.m * p.g * (p.beta + p.e * d));
+      const rear_force = d_curve.map(d => d * p.m * p.g * (1 - p.beta - p.e * d));
+
+      const yMax = niceMax(Math.max(...rear_force, rear_max_actual) * 1.05);
+
+      const decelLines = [];
+      for (let d = 0.1; d <= 1.51; d += 0.1) {
+        const totalForce = d * p.m * p.g;
+        decelLines.push({ d: Math.round(d * 10) / 10, data: [{ x: 0, y: totalForce }, { x: totalForce, y: 0 }] });
+      }
+
+      return {
+        front_max_actual,
+        rear_max_actual,
+        front_bias_pct,
+        ideal: front_force.map((f, i) => ({ x: f, y: rear_force[i] })),
+        currentLine: [{ x: 0, y: 0 }, { x: front_max_actual, y: rear_max_actual }],
+        decelLines,
+        yMax
+      };
+    }
+
+    let chart = null;
+    function ensureChart() {
+      if (chart) return chart;
+      const ctx = $('chart').getContext('2d');
+
+      Chart.register({
+        id: 'decelLabels',
+        afterDatasetsDraw(chart) {
+          const { ctx: c, scales: { x, y }, data: { datasets } } = chart;
+          datasets.forEach((ds, i) => {
+            if (!ds.label || !ds.label.endsWith(' decel') || !ds.data || ds.data.length < 2) return;
+            const totalForce = ds.data[1].x;
+            const label = ds.label.replace(' decel', '');
+            const px = 0.58 * totalForce;
+            const py = 0.42 * totalForce;
+            const xPx = x.getPixelForValue(px);
+            const yPx = y.getPixelForValue(py);
+            c.save();
+            c.translate(xPx, yPx);
+            c.rotate(-Math.PI / 4);
+            c.textAlign = 'left';
+            c.textBaseline = 'middle';
+            c.fillStyle = 'rgba(136,136,136,0.9)';
+            c.font = '10px JetBrains Mono, SF Mono, Consolas, monospace';
+            c.fillText(label, 4, 0);
+            c.restore();
+          });
+        }
+      });
+
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          datasets: [
+            { label: 'Safe (below ideal)', data: [], borderWidth: 0, backgroundColor: 'rgba(34,139,34,0.2)', fill: 'origin', tension: 0, pointRadius: 0 },
+            { label: 'Ideal curve', data: [], borderColor: '#4a9eff', borderWidth: 2, fill: false, tension: 0.1, pointRadius: 0 },
+            { label: 'Too much rear', data: [], borderWidth: 0, backgroundColor: 'rgba(200,60,60,0.2)', fill: 'end', tension: 0.1, pointRadius: 0 },
+            { label: 'Current setup', data: [], borderColor: '#e85d04', borderWidth: 2.5, fill: false, pointRadius: 0 }
+          ].concat(
+            [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4,1.5].map(d => ({
+              label: d.toFixed(1) + 'g decel',
+              data: [],
+              borderColor: 'rgba(136,136,136,0.7)',
+              borderWidth: 1,
+              borderDash: [4, 4],
+              fill: false,
+              pointRadius: 0,
+              tension: 0
+            }))
+          )
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { intersect: false, mode: 'index' },
+          plugins: {
+            legend: {
+              display: true,
+              labels: {
+                color: '#888',
+                font: { size: 11 },
+                filter: (item, chart) => !item.text.endsWith(' decel')
+              }
+            },
+            tooltip: {
+              callbacks: {
+                label: (item) => item.dataset.label + ': ' + item.raw.x.toFixed(0) + ' N front, ' + item.raw.y.toFixed(0) + ' N rear'
+              }
+            }
+          },
+          scales: {
+            x: {
+              type: 'linear',
+              title: { display: true, text: 'Front Brake Force (N)', color: '#888', font: { size: 11 } },
+              grid: { color: '#333' },
+              min: 0,
+              ticks: { color: '#888' }
+            },
+            y: {
+              type: 'linear',
+              title: { display: true, text: 'Rear Brake Force (N)', color: '#888', font: { size: 11 } },
+              grid: { color: '#333' },
+              min: 0,
+              ticks: { color: '#888' }
+            }
+          }
+        }
+      });
+      return chart;
+    }
+
+    function update() {
+      const p = getParams();
+      const out = compute(p);
+
+      $('results').innerHTML =
+        'Front max brake force: <strong>' + Math.round(out.front_max_actual) + ' N</strong> &nbsp; ' +
+        'Rear max brake force: <strong>' + Math.round(out.rear_max_actual) + ' N</strong> &nbsp; ' +
+        'Front brake bias: <strong>' + out.front_bias_pct.toFixed(1) + ' %</strong>';
+
+      ensureChart();
+
+      const xMax = niceMax(out.front_max_actual * 1.15);
+
+      chart.data.datasets[0].data = out.ideal.length ? [{ x: 0, y: 0 }, ...out.ideal, { x: out.ideal[out.ideal.length - 1].x, y: 0 }] : [];
+      chart.data.datasets[1].data = out.ideal;
+      chart.data.datasets[2].data = out.ideal;
+      chart.data.datasets[3].data = out.currentLine;
+      out.decelLines.forEach((line, i) => {
+        chart.data.datasets[4 + i].data = line.data;
+      });
+
+      chart.options.scales.x.max = xMax;
+      chart.options.scales.y.max = out.yMax;
+      chart.update('none');
+    }
+
+    function applyFrontPreset(preset) {
+      $('pist1-front-d-mm').value = preset.pist1_front_d_mm;
+      $('pist2-front-d-mm').value = preset.pist2_front_d_mm;
+      $('rotor-front-d-mm').value = preset.rotor_front_d_mm;
+      $('pad-front-height-mm').value = preset.pad_front_height_mm;
+      $('front-mu').value = preset.front_mu;
+    }
+
+    function applyRearPreset(preset) {
+      $('pist1-rear-d-mm').value = preset.pist1_rear_d_mm;
+      $('pist2-rear-d-mm').value = preset.pist2_rear_d_mm;
+      $('rotor-rear-d-mm').value = preset.rotor_rear_d_mm;
+      $('pad-rear-height-mm').value = preset.pad_rear_height_mm;
+      $('rear-mu').value = preset.rear_mu;
+    }
+
+    let applyingPreset = false;
+    const frontPresetEl = $('front-preset');
+    const rearPresetEl = $('rear-preset');
+
+    FRONT_PRESETS.forEach((p, i) => {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = p.name;
+      frontPresetEl.appendChild(opt);
+    });
+    REAR_PRESETS.forEach((p, i) => {
+      const opt = document.createElement('option');
+      opt.value = i;
+      opt.textContent = p.name;
+      rearPresetEl.appendChild(opt);
+    });
+
+    frontPresetEl.value = '1';
+    rearPresetEl.value = '0';
+    applyingPreset = true;
+    applyFrontPreset(FRONT_PRESETS[1]);
+    applyRearPreset(REAR_PRESETS[0]);
+    applyingPreset = false;
+
+    frontPresetEl.addEventListener('change', () => {
+      const v = frontPresetEl.value;
+      if (v === '') return;
+      const preset = FRONT_PRESETS[parseInt(v, 10)];
+      if (preset) { applyingPreset = true; applyFrontPreset(preset); update(); applyingPreset = false; }
+    });
+    rearPresetEl.addEventListener('change', () => {
+      const v = rearPresetEl.value;
+      if (v === '') return;
+      const preset = REAR_PRESETS[parseInt(v, 10)];
+      if (preset) { applyingPreset = true; applyRearPreset(preset); update(); applyingPreset = false; }
+    });
+
+    const frontPresetFieldIds = ['pist1-front-d-mm', 'pist2-front-d-mm', 'rotor-front-d-mm', 'pad-front-height-mm'];
+    const rearPresetFieldIds = ['pist1-rear-d-mm', 'pist2-rear-d-mm', 'rotor-rear-d-mm', 'pad-rear-height-mm'];
+    frontPresetFieldIds.forEach(id => {
+      const el = $(id);
+      if (el) {
+        el.addEventListener('input', () => { if (!applyingPreset) frontPresetEl.value = ''; });
+        el.addEventListener('change', () => { if (!applyingPreset) frontPresetEl.value = ''; });
+      }
+    });
+    rearPresetFieldIds.forEach(id => {
+      const el = $(id);
+      if (el) {
+        el.addEventListener('input', () => { if (!applyingPreset) rearPresetEl.value = ''; });
+        el.addEventListener('change', () => { if (!applyingPreset) rearPresetEl.value = ''; });
+      }
+    });
+
+    ['m','g','beta','l-mm','h-mm','pedal-force-lb','pedal-ratio','booster-ratio','mc-front-d-in','mc-rear-d-in','balance-bar-split',
+     'pist1-front-d-mm','pist2-front-d-mm','pist1-rear-d-mm','pist2-rear-d-mm','rotor-front-d-mm','rotor-rear-d-mm',
+     'pad-front-height-mm','pad-rear-height-mm','front-mu','rear-mu','tire-front-section-width-mm','tire-front-aspect-ratio','tire-front-rim-d-in',
+     'tire-rear-section-width-mm','tire-rear-aspect-ratio','tire-rear-rim-d-in','k-tire-front','k-tire-rear'].forEach(id => {
+      const el = $(id);
+      if (el) el.addEventListener('input', update);
+      if (el && el.tagName === 'SELECT') el.addEventListener('change', update);
+    });
+
+    function parseTireSize(size) {
+      const match = size.match(/(\d+)\/(\d+)\/(\d+)/);
+      if (!match) return null;
+      return {
+        section: parseInt(match[1], 10),
+        aspect: parseInt(match[2], 10),
+        rim: parseInt(match[3], 10)
+      };
+    }
+
+    function loadSetup(setup) {
+      const corners = setup.corners || {};
+      const lf = corners.left_front?.corner_weight_with_driver_lb || 0;
+      const rf = corners.right_front?.corner_weight_with_driver_lb || 0;
+      const lr = corners.left_rear?.corner_weight_with_driver_lb || 0;
+      const rr = corners.right_rear?.corner_weight_with_driver_lb || 0;
+      const totalWeight = lf + rf + lr + rr;
+      const frontWeight = lf + rf;
+
+      if (totalWeight > 0) {
+        $('m').value = Math.round(totalWeight);
+        $('beta').value = (frontWeight / totalWeight).toFixed(3);
+      }
+
+      if (setup.vehicle?.wheelbase_mm) {
+        $('l-mm').value = setup.vehicle.wheelbase_mm;
+      }
+      if (setup.vehicle?.cg_height_mm) {
+        $('h-mm').value = setup.vehicle.cg_height_mm;
+      }
+
+      if (setup.tires?.front?.size) {
+        const t = parseTireSize(setup.tires.front.size);
+        if (t) {
+          $('tire-front-section-width-mm').value = t.section;
+          $('tire-front-aspect-ratio').value = t.aspect;
+          $('tire-front-rim-d-in').value = t.rim;
+        }
+      }
+      if (setup.tires?.rear?.size) {
+        const t = parseTireSize(setup.tires.rear.size);
+        if (t) {
+          $('tire-rear-section-width-mm').value = t.section;
+          $('tire-rear-aspect-ratio').value = t.aspect;
+          $('tire-rear-rim-d-in').value = t.rim;
+        }
+      }
+
+      const input = setup.brakes?.input;
+      if (input) {
+        if (input.pedal_force_lb != null) $('pedal-force-lb').value = input.pedal_force_lb;
+        if (input.pedal_ratio != null) $('pedal-ratio').value = input.pedal_ratio;
+        if (input.booster_ratio != null) $('booster-ratio').value = input.booster_ratio;
+        if (input.mc_front_d_in != null) $('mc-front-d-in').value = input.mc_front_d_in;
+        if (input.mc_rear_d_in != null) $('mc-rear-d-in').value = input.mc_rear_d_in;
+        if (input.balance_bar_split != null) $('balance-bar-split').value = input.balance_bar_split;
+      }
+
+      const fb = setup.brakes?.front;
+      if (fb) {
+        if (fb.piston1_d_mm != null) $('pist1-front-d-mm').value = fb.piston1_d_mm;
+        if (fb.piston2_d_mm != null) $('pist2-front-d-mm').value = fb.piston2_d_mm;
+        if (fb.rotor_d_mm != null) $('rotor-front-d-mm').value = fb.rotor_d_mm;
+        if (fb.pad_height_mm != null) $('pad-front-height-mm').value = fb.pad_height_mm;
+        if (fb.pad_mu != null) $('front-mu').value = fb.pad_mu;
+        const matchIdx = findMatchingFrontPreset(fb);
+        frontPresetEl.value = matchIdx >= 0 ? matchIdx : '';
+      }
+
+      const rb = setup.brakes?.rear;
+      if (rb) {
+        if (rb.piston1_d_mm != null) $('pist1-rear-d-mm').value = rb.piston1_d_mm;
+        if (rb.piston2_d_mm != null) $('pist2-rear-d-mm').value = rb.piston2_d_mm;
+        if (rb.rotor_d_mm != null) $('rotor-rear-d-mm').value = rb.rotor_d_mm;
+        if (rb.pad_height_mm != null) $('pad-rear-height-mm').value = rb.pad_height_mm;
+        if (rb.pad_mu != null) $('rear-mu').value = rb.pad_mu;
+        const matchIdx = findMatchingRearPreset(rb);
+        rearPresetEl.value = matchIdx >= 0 ? matchIdx : '';
+      }
+    }
+
+    function findMatchingFrontPreset(brake) {
+      return FRONT_PRESETS.findIndex(p =>
+        p.pist1_front_d_mm === brake.piston1_d_mm &&
+        p.pist2_front_d_mm === brake.piston2_d_mm &&
+        p.rotor_front_d_mm === brake.rotor_d_mm &&
+        p.pad_front_height_mm === brake.pad_height_mm
+      );
+    }
+
+    function findMatchingRearPreset(brake) {
+      return REAR_PRESETS.findIndex(p =>
+        p.pist1_rear_d_mm === brake.piston1_d_mm &&
+        p.pist2_rear_d_mm === brake.piston2_d_mm &&
+        p.rotor_rear_d_mm === brake.rotor_d_mm &&
+        p.pad_rear_height_mm === brake.pad_height_mm
+      );
+    }
+
+    loadSetup(DEFAULT_SETUP);
+    update();
+  </script>
+</body>
+</html>

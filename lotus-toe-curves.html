@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Toe vs Suspension Travel</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="utils.js"></script>
+  <script src="setup.js"></script>
+  <link rel="stylesheet" href="shared.css">
+  <style>
+    .inputs { margin-bottom: 1rem; }
+    .field input { width: 120px; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <a href="index.html" class="back-link">Index</a>
+    <h1>Toe vs suspension travel</h1>
+  </div>
+  <div class="layout extra-wide">
+    <div class="panel">
+      <p class="hint" style="margin: 0;">Base position is compression from full droop to ride height. These values must be measured on the car and updated in the setup JSON — they cannot be derived from the toe curve data alone.</p>
+    </div>
+    <div class="side-by-side">
+      <div class="layout-column">
+        <div class="panel">
+          <h2>Front baseline</h2>
+          <div class="inputs">
+            <div class="field">
+              <label for="basePos">Base position (in)</label>
+              <input type="number" id="basePos" value="1.75" step="0.01" title="Ride height (compression from full droop)">
+            </div>
+            <div class="field">
+              <label for="baseToe">Base static toe (in)</label>
+              <input type="number" id="baseToe" value="0" step="0.001" title="Static toe at ride height">
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="chart-wrap">
+            <canvas id="chart"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="layout-column">
+        <div class="panel">
+          <h2>Rear baseline</h2>
+          <div class="inputs">
+            <div class="field">
+              <label for="basePosRear">Base position (in)</label>
+              <input type="number" id="basePosRear" value="2.375" step="0.01" title="Ride height (compression from full droop)">
+            </div>
+            <div class="field">
+              <label for="baseToeRear">Base static toe (in)</label>
+              <input type="number" id="baseToeRear" value="0.0625" step="0.001" title="Static toe at ride height">
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="chart-wrap">
+            <canvas id="chartRear"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="panel" style="text-align: center;">
+      <label class="toggle-wrap">
+        <span class="checkbox-box">
+          <input type="checkbox" id="useMm" title="Display chart in millimeters">
+          <span class="checkmark" aria-hidden="true">✓</span>
+        </span>
+        <span>Show in mm</span>
+      </label>
+    </div>
+  </div>
+
+  <script>
+    const basePosEl = $('basePos');
+    const baseToeEl = $('baseToe');
+    const basePosRearEl = $('basePosRear');
+    const baseToeRearEl = $('baseToeRear');
+    const useMmEl = $('useMm');
+
+    let frontCurve = null;
+    let rearCurve = null;
+
+    Chart.register({
+      id: 'xAxisStepPlugin',
+      afterBuildTicks: (scale) => {
+        if (scale.id !== 'x') return;
+        const opts = scale.chart.options.plugins?.xAxisStepPlugin;
+        if (!opts) return;
+        const { min, max, step } = opts;
+        const ticks = [];
+        for (let v = min; v <= max + step * 0.5; v += step) {
+          ticks.push({ value: Math.round(v * 1e10) / 1e10 });
+        }
+        scale.ticks = ticks;
+      }
+    });
+
+    function loadSetup(setup) {
+      const curves = setup.toe_curves || DEFAULT_SETUP.toe_curves;
+      const corners = setup.corners || DEFAULT_SETUP.corners;
+      frontCurve = {
+        title: `Elise Front Toe Curve - ${curves.front.notes}`,
+        data: curves.front.data.map(d => ({ x: d.compression_in, y: d.toe_in }))
+      };
+      rearCurve = {
+        title: `Elise Rear Toe Curve - ${curves.rear.notes}`,
+        data: curves.rear.data.map(d => ({ x: d.compression_in, y: d.toe_in }))
+      };
+      basePosEl.value = curves.front.base_position_in;
+      basePosRearEl.value = curves.rear.base_position_in;
+      baseToeEl.value = corners.left_front?.toe_in ?? 0;
+      baseToeRearEl.value = corners.left_rear?.toe_in ?? 0;
+    }
+
+    loadSetup(DEFAULT_SETUP);
+
+    let chart = null;
+    let chartRear = null;
+
+    function createChartOptions() {
+      return {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { intersect: false, mode: 'index' },
+        plugins: {
+          legend: { display: false },
+          xAxisStepPlugin: {},
+          title: { display: true, text: '', color: '#bbb', font: { size: 16, weight: 'bold' }, padding: { bottom: 16 } },
+          tooltip: {
+            callbacks: {
+              label: (item) => {
+                const u = useMmEl.checked ? 'mm' : 'in';
+                const prec = useMmEl.checked ? 2 : 4;
+                return `Toe Δ: ${item.raw.y.toFixed(prec)} ${u}  @  travel Δ: ${item.raw.x.toFixed(prec)} ${u}`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            type: 'linear',
+            title: { display: true, text: 'Droop ← base → Bump', color: '#888', font: { size: 11 } },
+            grid: {
+              color: (ctx) => ctx.tick.value === 0 ? 'rgba(136,136,136,0.9)' : '#333',
+              lineWidth: (ctx) => ctx.tick.value === 0 ? 2 : 1
+            },
+            ticks: {
+              color: '#888',
+              callback: (value) => typeof value === 'number' ? value.toFixed(2) : value
+            }
+          },
+          y: {
+            type: 'linear',
+            title: { display: true, text: 'Toe out ↓ base ↑ Toe in', color: '#888', font: { size: 11 } },
+            grid: {
+              color: (ctx) => ctx.tick.value === 0 ? 'rgba(136,136,136,0.9)' : '#333',
+              lineWidth: (ctx) => ctx.tick.value === 0 ? 2 : 1
+            },
+            ticks: {
+              color: '#888',
+              callback: (value) => typeof value === 'number' ? value.toFixed(2) : value
+            }
+          }
+        }
+      };
+    }
+
+    function ensureChart() {
+      if (chart) return chart;
+      const ctx = $('chart').getContext('2d');
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          datasets: [{
+            label: 'Toe change',
+            data: [],
+            borderColor: '#e85d04',
+            fill: false,
+            tension: 0.2,
+            pointRadius: 4
+          }]
+        },
+        options: createChartOptions()
+      });
+      return chart;
+    }
+
+    function ensureChartRear() {
+      if (chartRear) return chartRear;
+      const ctx = $('chartRear').getContext('2d');
+      chartRear = new Chart(ctx, {
+        type: 'line',
+        data: {
+          datasets: [{
+            label: 'Toe change',
+            data: [],
+            borderColor: '#e85d04',
+            fill: false,
+            tension: 0.2,
+            pointRadius: 4
+          }]
+        },
+        options: createChartOptions()
+      });
+      return chartRear;
+    }
+
+    function niceScale(range, maxTicks = 12, isMm = false) {
+      const steps = isMm ? [0.5, 1, 2, 5, 10, 20, 25, 50, 100, 250, 500] : [0.01, 0.02, 0.05, 0.1, 0.15, 0.2, 0.25, 0.5, 1, 1.5, 2, 2.5, 5, 10];
+      const rawStep = (2 * range) / maxTicks;
+      let step = steps.find(s => s >= rawStep) || steps[steps.length - 1];
+      if (step < rawStep) step = steps[steps.length - 1];
+      const niceMax = Math.ceil(range / step) * step;
+      return { min: -niceMax, max: niceMax, stepSize: step };
+    }
+
+    function update() {
+      const useMm = useMmEl.checked;
+      const scale = useMm ? IN_TO_MM : 1;
+      const pad = 0.05;
+      const xStep = useMm ? 5 : 0.25;
+
+      function updateOne(curve, basePosElement, baseToeElement, chartInstance) {
+        if (!curve || !curve.data || curve.data.length === 0) {
+          if (chartInstance) {
+            chartInstance.data.datasets[0].data = [];
+            chartInstance.options.plugins.title.display = false;
+          }
+          return;
+        }
+        const raw = curve.data;
+        const basePos = parseFloat(basePosElement.value) || 0;
+        const baseToeInput = parseFloat(baseToeElement.value);
+        const sorted = [...raw].sort((a, b) => a.x - b.x);
+        let toeAtBase = sorted[0].y;
+        for (let i = 0; i < sorted.length - 1; i++) {
+          const a = sorted[i], b = sorted[i + 1];
+          if (basePos >= a.x && basePos <= b.x) {
+            const t = (basePos - a.x) / (b.x - a.x || 1);
+            toeAtBase = a.y + t * (b.y - a.y);
+            break;
+          }
+          if (basePos < a.x) { toeAtBase = a.y; break; }
+          toeAtBase = b.y;
+        }
+        const baseToeOffset = (Number.isFinite(baseToeInput) && baseToeInput !== 0) ? baseToeInput : 0;
+        const data = raw.map(({ x, y }) => ({
+          x: x - basePos,
+          y: (y - toeAtBase) + baseToeOffset
+        })).sort((a, b) => a.x - b.x);
+        const displayData = data.map(({ x, y }) => ({
+          x: x * scale,
+          y: y * scale
+        }));
+        chartInstance.data.datasets[0].data = displayData;
+        chartInstance.options.plugins.title.display = !!curve.title;
+        chartInstance.options.plugins.title.text = curve.title || '';
+        chartInstance.options.scales.x.title.text = 'Droop ← base → Bump (' + (useMm ? 'mm' : 'in') + ')';
+        chartInstance.options.scales.y.title.text = 'Toe out ↓ base ↑ Toe in (' + (useMm ? 'mm' : 'in') + ')';
+        const maxAbsY = Math.max(1e-6, ...displayData.map(d => Math.abs(d.y)));
+        const rangeY = maxAbsY * (1 + pad);
+        const yNice = niceScale(rangeY, 12, useMm);
+        const dataMinX = Math.min(...displayData.map(d => d.x));
+        const dataMaxX = Math.max(...displayData.map(d => d.x));
+        const dataSpanX = Math.max(dataMaxX - dataMinX, 1e-6);
+        let xMin = Math.floor((dataMinX - pad * dataSpanX) / xStep) * xStep;
+        let xMax = Math.ceil((dataMaxX + pad * dataSpanX) / xStep) * xStep;
+        if (dataMinX >= 0) xMin = Math.max(0, xMin);
+        if (dataMaxX <= 0) xMax = Math.min(0, xMax);
+        chartInstance.options.plugins.xAxisStepPlugin = { min: xMin, max: xMax, step: xStep };
+        chartInstance.options.scales.x.min = xMin;
+        chartInstance.options.scales.x.max = xMax;
+        chartInstance.options.scales.x.ticks.stepSize = xStep;
+        chartInstance.options.scales.x.ticks.autoSkip = false;
+        delete chartInstance.options.scales.x.ticks.maxTicksLimit;
+        chartInstance.options.scales.y.min = yNice.min;
+        chartInstance.options.scales.y.max = yNice.max;
+        chartInstance.options.scales.y.ticks.stepSize = yNice.stepSize;
+        chartInstance.options.scales.y.ticks.autoSkip = !useMm;
+      }
+
+      ensureChart();
+      ensureChartRear();
+      updateOne(frontCurve, basePosEl, baseToeEl, chart);
+      updateOne(rearCurve, basePosRearEl, baseToeRearEl, chartRear);
+      chart.update('none');
+      chartRear.update('none');
+    }
+
+    basePosEl.addEventListener('input', update);
+    baseToeEl.addEventListener('input', update);
+    basePosRearEl.addEventListener('input', update);
+    baseToeRearEl.addEventListener('input', update);
+    useMmEl.addEventListener('change', update);
+    update();
+  </script>
+</body>
+</html>

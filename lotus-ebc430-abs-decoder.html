@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Decode Lotus ABS Codes</title>
+  <script src="utils.js"></script>
+  <link rel="stylesheet" href="shared.css">
+  <style>
+    .results-panel { display: none; }
+    .results-panel.visible { display: block; }
+    .no-codes { font-size: 0.85rem; color: var(--success); padding: 1rem; text-align: center; }
+    .code-cell { font-weight: 600; color: var(--accent); white-space: nowrap; }
+    .num-cell { color: var(--muted); width: 2rem; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <a href="index.html" class="back-link">Index</a>
+    <h1>Decode Lotus ABS Codes</h1>
+  </div>
+  <div class="layout">
+    <div class="panel">
+      <h2>Diagnostic Trouble Code Data</h2>
+      <textarea id="dtc-data" placeholder="Paste hex bytes from OBD scan tool (e.g. 58 09 40 35 A4...)"></textarea>
+      <p class="hint">Paste the raw hex response from reading DTCs via OBD-II / KWP2000. Spaces optional.</p>
+      <p class="error" id="error"></p>
+      <div class="button-row">
+        <button type="button" id="analyze-btn">Analyze</button>
+        <button type="button" id="example-btn" class="secondary">Load Example</button>
+      </div>
+    </div>
+
+    <div class="panel results-panel" id="results-panel">
+      <h2>Results</h2>
+      <p class="summary" id="summary"></p>
+      <div id="no-codes" class="no-codes" style="display: none;">No diagnostic trouble codes found.</div>
+      <table id="dtc-table" style="display: none;">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Code</th>
+            <th>Explanation</th>
+          </tr>
+        </thead>
+        <tbody id="dtc-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const DTC_DEFINITIONS = {
+      0x0035: "Front left wheel speed sensor: Short circuit or circuit open",
+      0x0040: "Front right wheel speed sensor: Short circuit or circuit open",
+      0x0045: "Rear left wheel speed sensor: Short circuit or circuit open",
+      0x0050: "Rear right wheel speed sensor: Short circuit or circuit open",
+      0x0060: "Front left outlet solenoid valve circuit malfunction",
+      0x0065: "Front left inlet solenoid valve circuit malfunction",
+      0x0070: "Front right outlet solenoid valve circuit malfunction",
+      0x0075: "Front right inlet solenoid valve circuit malfunction",
+      0x0080: "Rear left outlet solenoid valve circuit malfunction",
+      0x0085: "Rear left inlet solenoid valve circuit malfunction",
+      0x0090: "Rear right outlet solenoid valve circuit malfunction",
+      0x0095: "Rear right inlet solenoid valve circuit malfunction",
+      0x0110: "Return pump: circuit open or shorted, locked or shorted",
+      0x0121: "Valve relay circuit malfunction",
+      0x0161: "Brake light switch fault",
+      0x0232: "Brake system telltale voltage: high, low, or open circuit",
+      0x0245: "Wheel speed: sensor erratic signal or error",
+      0x0252: "Speed calculation error between 8 bits",
+      0x0550: "Replace electronic control unit",
+      0x0556: "Watchdog error",
+      0x0560: "Replace electronic control unit",
+      0x0561: "8 bit RAM / ROM error",
+      0x0563: "16 bit ROM error",
+      0x0564: "16 bit RAM error",
+      0x0800: "Switched battery voltage: high (valve relay) or low (valve relay)"
+    };
+
+    function parseDtcResponse(payloadBytes) {
+      if (payloadBytes.length < 2) {
+        return { error: "Response too short" };
+      }
+
+      const dtcCount = payloadBytes[1];
+      const expectedLength = 2 + (dtcCount * 3);
+
+      if (payloadBytes.length < expectedLength) {
+        return { error: `Expected ${expectedLength} bytes for ${dtcCount} DTCs, got ${payloadBytes.length}` };
+      }
+
+      const dtcs = [];
+
+      for (let i = 0; i < dtcCount; i++) {
+        const offset = 2 + (3 * i);
+        const byte1 = payloadBytes[offset];
+        const byte2 = payloadBytes[offset + 1];
+        const status = payloadBytes[offset + 2];
+
+        const typeCode = (byte1 >> 6) & 0x3;
+        const typeChars = ['P', 'C', 'B', 'U'];
+        const typeChar = typeChars[typeCode] || '?';
+
+        const dtcCode = ((byte1 << 8) | byte2) & 0x3FFF;
+        const dtcStr = `${typeChar}${dtcCode.toString(16).toUpperCase().padStart(4, '0')}`;
+        const explanation = DTC_DEFINITIONS[dtcCode] || "Unknown DTC";
+
+        dtcs.push({
+          code: dtcCode,
+          typeChar,
+          displayCode: dtcStr,
+          status,
+          explanation
+        });
+      }
+
+      return {
+        sid: payloadBytes[0] - 0x40,
+        count: dtcCount,
+        dtcs
+      };
+    }
+
+    function parseHexInput(input) {
+      const cleaned = input.trim().replace(/\s+/g, '');
+
+      if (cleaned.length === 0) {
+        return { error: "Please paste diagnostic trouble code data" };
+      }
+
+      if (!/^[0-9a-fA-F]+$/.test(cleaned)) {
+        return { error: "Invalid characters in input. Use hex bytes only (0-9, A-F)" };
+      }
+
+      if (cleaned.length % 2 !== 0) {
+        return { error: "Invalid data length. Ensure you've pasted the complete response" };
+      }
+
+      const bytes = [];
+      for (let i = 0; i < cleaned.length; i += 2) {
+        bytes.push(parseInt(cleaned.substring(i, i + 2), 16));
+      }
+
+      return { bytes };
+    }
+
+    const dataInput = $('dtc-data');
+    const errorEl = $('error');
+    const resultsPanel = $('results-panel');
+    const summaryEl = $('summary');
+    const noCodesEl = $('no-codes');
+    const tableEl = $('dtc-table');
+    const tbodyEl = $('dtc-tbody');
+    const analyzeBtn = $('analyze-btn');
+    const exampleBtn = $('example-btn');
+
+    function analyze() {
+      errorEl.textContent = '';
+      resultsPanel.classList.remove('visible');
+
+      const parseResult = parseHexInput(dataInput.value);
+      if (parseResult.error) {
+        errorEl.textContent = parseResult.error;
+        return;
+      }
+
+      const dtcResult = parseDtcResponse(parseResult.bytes);
+      if (dtcResult.error) {
+        errorEl.textContent = dtcResult.error;
+        return;
+      }
+
+      const chassisDtcs = dtcResult.dtcs.filter(d => d.typeChar === 'C');
+
+      summaryEl.innerHTML = `Found <strong>${dtcResult.count}</strong> total DTC(s), ` +
+        `<strong>${chassisDtcs.length}</strong> chassis code(s) displayed.`;
+
+      tbodyEl.innerHTML = '';
+
+      if (chassisDtcs.length === 0) {
+        noCodesEl.style.display = '';
+        tableEl.style.display = 'none';
+      } else {
+        noCodesEl.style.display = 'none';
+        tableEl.style.display = '';
+
+        chassisDtcs.forEach((dtc, index) => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td class="num-cell">${index + 1}</td>
+            <td class="code-cell">${dtc.displayCode}</td>
+            <td class="explanation-cell">${dtc.explanation}</td>
+          `;
+          tbodyEl.appendChild(row);
+        });
+      }
+
+      resultsPanel.classList.add('visible');
+    }
+
+    function loadExample() {
+      dataInput.value = "58 09 40 35 A4 40 40 A4 40 45 A4 40 50 A4 40 35 A5 40 40 A5 40 40 A6 41 61 20 42 32 61";
+      analyze();
+    }
+
+    analyzeBtn.addEventListener('click', analyze);
+    exampleBtn.addEventListener('click', loadExample);
+
+    dataInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        analyze();
+      }
+    });
+  </script>
+</body>
+</html>

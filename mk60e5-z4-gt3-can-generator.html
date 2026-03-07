@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MK60E5 Z4 GT3 CAN Message 0x5BA Generator</title>
+  <script src="utils.js"></script>
+  <script src="setup.js"></script>
+  <link rel="stylesheet" href="shared.css">
+  <style>
+    .output-placeholder {
+      font-size: 0.85rem;
+      color: var(--muted);
+      padding: 1rem;
+      text-align: center;
+    }
+    .output-section { margin-top: 1rem; }
+    .byte-num { font-weight: 600; color: var(--muted); white-space: nowrap; }
+    .byte-hex { font-weight: 600; color: var(--accent); white-space: nowrap; }
+    .byte-desc { color: var(--text); }
+    .wiring-table { font-size: 0.8rem; }
+    .wiring-table td { padding: 0.4rem 0.75rem; }
+    .wiring-table .pin-num { font-weight: 600; color: var(--accent); white-space: nowrap; width: 3rem; }
+    .wiring-table .pin-usage { color: var(--text); white-space: nowrap; }
+    .wiring-table .pin-notes { color: var(--muted); }
+    .wiring-table .empty-row td { color: var(--border); }
+    .notes-section { margin-top: 1rem; }
+    .notes-section h3:first-child { margin-top: 0; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <a href="index.html" class="back-link">Index</a>
+    <h1>MK60E5 Z4 GT3 CAN Message 0x5BA Generator</h1>
+  </div>
+  <div class="layout">
+    <div class="panel">
+      <h2>Traction Control</h2>
+      <div class="inputs">
+        <div class="field">
+          <label for="tcs-threshold">TCS Threshold %</label>
+          <input type="number" id="tcs-threshold" min="30" max="250" value="100" oninput="debouncedGenerate()">
+        </div>
+        <div class="field field-wide">
+          <label for="tcs-modus">TCS Mode</label>
+          <select id="tcs-modus" onchange="generateMessage()">
+            <option value="0">0 - TCS off</option>
+            <option value="1">1 - High base threshold</option>
+            <option value="2">2 - Low base threshold</option>
+          </select>
+        </div>
+      </div>
+      <p class="hint">Threshold range: 30-250%, resolution: 1%</p>
+    </div>
+
+    <div class="panel">
+      <h2>Wheel Circumference</h2>
+      <div class="field" style="margin-bottom: 1rem;">
+        <label for="tire-front">Front Wheel</label>
+        <div class="inline-inputs">
+          <input type="text" id="tire-front" value="" oninput="updateCircumference('front')">
+          <span class="separator">=</span>
+          <input type="number" id="circ-front" placeholder="mm" min="1440" max="2880" oninput="updateCircumferenceManual('front')">
+          <span class="unit">mm</span>
+        </div>
+        <p class="hint">Examples: 205/50/15 | 27/65-18 | 23.1in | 587mm | 875r</p>
+      </div>
+      <div class="field">
+        <label for="tire-rear">Rear Wheel</label>
+        <div class="inline-inputs">
+          <input type="text" id="tire-rear" value="" oninput="updateCircumference('rear')">
+          <span class="separator">=</span>
+          <input type="number" id="circ-rear" placeholder="mm" min="1440" max="2880" oninput="updateCircumferenceManual('rear')">
+          <span class="unit">mm</span>
+        </div>
+        <p class="hint">Examples: 245/40/17 | 27/65-18 | 24.7in | 627mm | 816r</p>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>ABS & Shifting</h2>
+      <div class="inputs">
+        <div class="field">
+          <label for="abs-mode">ABS Mode (0-9)</label>
+          <input type="number" id="abs-mode" min="0" max="9" value="0" oninput="debouncedGenerate()">
+        </div>
+        <div class="field field-wide">
+          <label for="gear-shift">Gear Shift Status</label>
+          <select id="gear-shift" onchange="generateMessage()">
+            <option value="0">0 - No shift</option>
+            <option value="1">1 - Up shift</option>
+            <option value="2">2 - Down shift</option>
+          </select>
+        </div>
+      </div>
+      <p class="hint">ABS: 0 = max intervention, 9 = min intervention</p>
+    </div>
+
+    <div class="panel" id="output">
+      <div class="output-placeholder">Enter valid tire sizes to generate CAN message</div>
+    </div>
+
+    <details class="panel collapsible" open>
+      <summary>Notes — MK60E5 Z4 GT3 ABS</summary>
+      <div class="notes-content">
+        <p>Tools and notes for diagnosis and configuration of the MK60E5 from a BMW Z4 flashed with Z4 GT3 / Motorsport software. For diagnostics, K-Line pin 2 must be wired to the diagnostic connector (unlike normal E1/E5).</p>
+        <p>Part number: <code>34516769162</code> with <code>829.3</code> code on module. Compatible with VW yaw sensor <code>7H0907652A</code> (note: different pinout than BMW yaw sensor).</p>
+        <p>When flashed, these units allow specifying tire circumference separately for front and rear, plus ABS intervention mode with 10 steps. Max to min intervention order: 0, 9, 8, 7, 6, 5, 4, 3, 2, 1.</p>
+      </div>
+    </details>
+
+    <details class="panel collapsible">
+      <summary>Wiring — Z4 MK60E5</summary>
+      <div class="notes-section">
+        <table class="wiring-table">
+          <thead>
+            <tr>
+              <th>Pin</th>
+              <th>Usage</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="pin-num">1</td>
+              <td class="pin-usage">Power</td>
+              <td class="pin-notes">12v 30 amps</td>
+            </tr>
+            <tr>
+              <td class="pin-num">2</td>
+              <td class="pin-usage">K-Line</td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr>
+              <td class="pin-num">3</td>
+              <td class="pin-usage">Brake Fluid Level</td>
+              <td class="pin-notes">Splice to ground</td>
+            </tr>
+            <tr>
+              <td class="pin-num">4</td>
+              <td class="pin-usage">Brake Switch Input</td>
+              <td class="pin-notes">Ground normally, open on pedal press</td>
+            </tr>
+            <tr class="empty-row">
+              <td class="pin-num">5-10</td>
+              <td class="pin-usage"></td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr>
+              <td class="pin-num">11</td>
+              <td class="pin-usage">F CAN High</td>
+              <td class="pin-notes">Yaw sensor CAN High</td>
+            </tr>
+            <tr class="empty-row">
+              <td class="pin-num">12-14</td>
+              <td class="pin-usage"></td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr>
+              <td class="pin-num">15</td>
+              <td class="pin-usage">PT CAN Low</td>
+              <td class="pin-notes">For Datalog</td>
+            </tr>
+            <tr>
+              <td class="pin-num">16</td>
+              <td class="pin-usage">Ground</td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr>
+              <td class="pin-num">17</td>
+              <td class="pin-usage">Switched Power</td>
+              <td class="pin-notes">12v 5 amps, spliced to 29</td>
+            </tr>
+            <tr class="empty-row">
+              <td class="pin-num">18-25</td>
+              <td class="pin-usage"></td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr>
+              <td class="pin-num">26</td>
+              <td class="pin-usage">F CAN Low</td>
+              <td class="pin-notes">Yaw sensor CAN Low</td>
+            </tr>
+            <tr>
+              <td class="pin-num">27</td>
+              <td class="pin-usage">PT CAN Ground</td>
+              <td class="pin-notes">Yaw sensor ground</td>
+            </tr>
+            <tr class="empty-row">
+              <td class="pin-num">28</td>
+              <td class="pin-usage"></td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr>
+              <td class="pin-num">29</td>
+              <td class="pin-usage">Switched Power</td>
+              <td class="pin-notes">12v 5 amps, wakeup, spliced to 17, can be switched for ABS on/off</td>
+            </tr>
+            <tr>
+              <td class="pin-num">30</td>
+              <td class="pin-usage">PT CAN High</td>
+              <td class="pin-notes">For data logging</td>
+            </tr>
+            <tr class="empty-row">
+              <td class="pin-num">31</td>
+              <td class="pin-usage"></td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr>
+              <td class="pin-num">32</td>
+              <td class="pin-usage">Power</td>
+              <td class="pin-notes">12v 30 amps</td>
+            </tr>
+            <tr>
+              <td class="pin-num">33</td>
+              <td class="pin-usage">FR Wheel Speed Signal</td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr>
+              <td class="pin-num">34</td>
+              <td class="pin-usage">FR Wheel Speed Power</td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr class="empty-row">
+              <td class="pin-num">35</td>
+              <td class="pin-usage"></td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr>
+              <td class="pin-num">36</td>
+              <td class="pin-usage">RL Wheel Speed Power</td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr>
+              <td class="pin-num">37</td>
+              <td class="pin-usage">RL Wheel Speed Signal</td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr>
+              <td class="pin-num">38</td>
+              <td class="pin-usage">Parking Brake</td>
+              <td class="pin-notes">Splice to ground</td>
+            </tr>
+            <tr>
+              <td class="pin-num">39</td>
+              <td class="pin-usage">PT CAN Power</td>
+              <td class="pin-notes">Yaw sensor 12v</td>
+            </tr>
+            <tr class="empty-row">
+              <td class="pin-num">40-41</td>
+              <td class="pin-usage"></td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr>
+              <td class="pin-num">42</td>
+              <td class="pin-usage">RR Wheel Speed Signal</td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr>
+              <td class="pin-num">43</td>
+              <td class="pin-usage">RR Wheel Speed Power</td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr>
+              <td class="pin-num">44</td>
+              <td class="pin-usage">ABS Error Light</td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr>
+              <td class="pin-num">45</td>
+              <td class="pin-usage">FL Wheel Speed Power</td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr>
+              <td class="pin-num">46</td>
+              <td class="pin-usage">FL Wheel Speed Signal</td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr>
+              <td class="pin-num">47</td>
+              <td class="pin-usage">Ground</td>
+              <td class="pin-notes"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+
+    <details class="panel collapsible">
+      <summary>Wiring — VW Yaw Sensor</summary>
+      <div class="notes-section">
+        <table class="wiring-table">
+          <thead>
+            <tr>
+              <th>Pin</th>
+              <th>Usage</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="pin-num">1</td>
+              <td class="pin-usage">12v Power</td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr>
+              <td class="pin-num">2</td>
+              <td class="pin-usage">CAN Low</td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr>
+              <td class="pin-num">3</td>
+              <td class="pin-usage">Ground</td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr>
+              <td class="pin-num">4</td>
+              <td class="pin-usage">CAN High</td>
+              <td class="pin-notes"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+  </div>
+
+  <script>
+    const debouncedGenerate = debounce(generateMessage);
+
+    function calcCircumference(wheel) {
+      const tireInput = $(`tire-${wheel}`);
+      const circInput = $(`circ-${wheel}`);
+      const tireSize = tireInput.value.trim();
+
+      if (tireSize) {
+        const circ = parseTireCircumference(tireSize);
+        circInput.value = circ || '';
+      } else {
+        circInput.value = '';
+      }
+      tireInput.classList.remove('overridden');
+    }
+
+    const debouncedUpdateFront = debounce(() => { calcCircumference('front'); generateMessage(); });
+    const debouncedUpdateRear = debounce(() => { calcCircumference('rear'); generateMessage(); });
+
+    function updateCircumference(wheel) {
+      if (wheel === 'front') debouncedUpdateFront();
+      else debouncedUpdateRear();
+    }
+
+    const debouncedManualFront = debounce(() => {
+      const tireInput = $('tire-front');
+      const currentCirc = parseInt($('circ-front').value);
+      const calculatedCirc = parseTireCircumference(tireInput.value.trim());
+      tireInput.classList.toggle('overridden', calculatedCirc && currentCirc !== calculatedCirc);
+      generateMessage();
+    });
+
+    const debouncedManualRear = debounce(() => {
+      const tireInput = $('tire-rear');
+      const currentCirc = parseInt($('circ-rear').value);
+      const calculatedCirc = parseTireCircumference(tireInput.value.trim());
+      tireInput.classList.toggle('overridden', calculatedCirc && currentCirc !== calculatedCirc);
+      generateMessage();
+    });
+
+    function updateCircumferenceManual(wheel) {
+      if (wheel === 'front') debouncedManualFront();
+      else debouncedManualRear();
+    }
+
+    function generateMessage() {
+      const circFront = parseInt($('circ-front').value);
+      const circRear = parseInt($('circ-rear').value);
+      const outputEl = $('output');
+
+      if (!circFront || !circRear) {
+        outputEl.innerHTML = '<div class="output-placeholder">Enter valid tire sizes to generate CAN message</div>';
+        return;
+      }
+
+      if (circFront < 1440 || circFront > 2880) {
+        outputEl.innerHTML = `<p class="error">Front wheel circumference ${circFront}mm is out of range (1440-2880mm)</p>`;
+        return;
+      }
+      if (circRear < 1440 || circRear > 2880) {
+        outputEl.innerHTML = `<p class="error">Rear wheel circumference ${circRear}mm is out of range (1440-2880mm)</p>`;
+        return;
+      }
+
+      const tcsThreshold = parseInt($('tcs-threshold').value);
+      const tcsModus = parseInt($('tcs-modus').value);
+      const absMode = parseInt($('abs-mode').value);
+      const gearShift = parseInt($('gear-shift').value);
+
+      const circFrontHigh = Math.floor(circFront / 256);
+      const circFrontLow = circFront % 256;
+      const circRearHigh = Math.floor(circRear / 256);
+      const circRearLow = circRear % 256;
+
+      const data = new Uint8Array(8);
+      data[0] = tcsThreshold & 0xFF;
+      data[1] = tcsModus & 0xFF;
+      data[2] = circFrontLow & 0xFF;
+      data[3] = circFrontHigh & 0xFF;
+      data[4] = circRearLow & 0xFF;
+      data[5] = circRearHigh & 0xFF;
+      data[6] = absMode & 0x0F;
+      data[7] = gearShift & 0x03;
+
+      const hexMessage = Array.from(data)
+        .map(b => b.toString(16).toUpperCase().padStart(2, '0'))
+        .join(' ');
+
+      const decimalMessage = Array.from(data).join(' ');
+
+      const tcsModusText = ['TCS off', 'High base threshold', 'Low base threshold'][tcsModus];
+      const gearShiftText = ['No shift', 'Up shift', 'Down shift'][gearShift];
+
+      outputEl.innerHTML = `
+        <h2>CAN Message</h2>
+        <div class="output-value">ID: 0x5BA &nbsp; Data: ${hexMessage}</div>
+
+        <div class="output-section">
+          <p class="output-label">Decimal (AIM RaceStudio 3)</p>
+          <div class="output-value">${decimalMessage}</div>
+        </div>
+
+        <div class="output-section">
+          <p class="output-label">Breakdown</p>
+          <table class="byte-table">
+            <thead>
+              <tr>
+                <th>Byte</th>
+                <th>Hex</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="byte-num">1</td>
+                <td class="byte-hex">0x${data[0].toString(16).toUpperCase().padStart(2, '0')}</td>
+                <td class="byte-desc">TCS Threshold: ${tcsThreshold}%</td>
+              </tr>
+              <tr>
+                <td class="byte-num">2</td>
+                <td class="byte-hex">0x${data[1].toString(16).toUpperCase().padStart(2, '0')}</td>
+                <td class="byte-desc">TCS Mode: ${tcsModusText}</td>
+              </tr>
+              <tr>
+                <td class="byte-num">3</td>
+                <td class="byte-hex">0x${data[2].toString(16).toUpperCase().padStart(2, '0')}</td>
+                <td class="byte-desc">Front Circumference Low</td>
+              </tr>
+              <tr>
+                <td class="byte-num">4</td>
+                <td class="byte-hex">0x${data[3].toString(16).toUpperCase().padStart(2, '0')}</td>
+                <td class="byte-desc">Front Circumference High → ${circFront} mm</td>
+              </tr>
+              <tr>
+                <td class="byte-num">5</td>
+                <td class="byte-hex">0x${data[4].toString(16).toUpperCase().padStart(2, '0')}</td>
+                <td class="byte-desc">Rear Circumference Low</td>
+              </tr>
+              <tr>
+                <td class="byte-num">6</td>
+                <td class="byte-hex">0x${data[5].toString(16).toUpperCase().padStart(2, '0')}</td>
+                <td class="byte-desc">Rear Circumference High → ${circRear} mm</td>
+              </tr>
+              <tr>
+                <td class="byte-num">7</td>
+                <td class="byte-hex">0x${data[6].toString(16).toUpperCase().padStart(2, '0')}</td>
+                <td class="byte-desc">ABS Mode: ${absMode}</td>
+              </tr>
+              <tr>
+                <td class="byte-num">8</td>
+                <td class="byte-hex">0x${data[7].toString(16).toUpperCase().padStart(2, '0')}</td>
+                <td class="byte-desc">Gear Shift: ${gearShiftText}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function getTireDisplayValue(tire) {
+      if (tire.revolutions_per_mile) return tire.revolutions_per_mile + 'r';
+      return tire.size || '';
+    }
+
+    window.onload = function() {
+      if (typeof DEFAULT_SETUP !== 'undefined' && DEFAULT_SETUP.tires) {
+        if (DEFAULT_SETUP.tires.front) $('tire-front').value = getTireDisplayValue(DEFAULT_SETUP.tires.front);
+        if (DEFAULT_SETUP.tires.rear) $('tire-rear').value = getTireDisplayValue(DEFAULT_SETUP.tires.rear);
+      }
+      calcCircumference('front');
+      calcCircumference('rear');
+      generateMessage();
+    };
+  </script>
+</body>
+</html>

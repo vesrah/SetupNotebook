@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Setup Editor</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="utils.js"></script>
+  <script src="setup.js"></script>
+  <link rel="stylesheet" href="shared.css">
+  <style>
+    #editor { display: none; }
+    #editor.loaded { display: block; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <a href="index.html" class="back-link">Index</a>
+    <h1>Setup Editor</h1>
+  </div>
+  <div class="layout wide">
+    <div class="panel">
+      <h2>File</h2>
+      <div class="file-controls">
+        <button type="button" id="load-default">Load Default</button>
+        <button type="button" id="save-btn" class="secondary">Save JSON</button>
+      </div>
+    </div>
+
+    <div id="empty-state" class="panel empty-state">
+      Click "Load Default" to begin editing
+    </div>
+
+    <div id="editor">
+      <div class="panel">
+        <div class="section">
+          <h3 class="section-title">Vehicle</h3>
+          <div class="field-grid">
+            <div class="field">
+              <label for="name">Name</label>
+              <input type="text" id="name">
+            </div>
+            <div class="field">
+              <label for="wheelbase-mm">Wheelbase (mm)</label>
+              <input type="number" id="wheelbase-mm" step="1">
+            </div>
+            <div class="field">
+              <label for="cg-height-mm">CG Height (mm)</label>
+              <input type="number" id="cg-height-mm" step="1">
+            </div>
+            <div class="field">
+              <label for="rh-correction-front">RH Correction F (mm)</label>
+              <input type="number" id="rh-correction-front" step="0.1">
+            </div>
+            <div class="field">
+              <label for="rh-correction-rear">RH Correction R (mm)</label>
+              <input type="number" id="rh-correction-rear" step="0.1">
+            </div>
+            <div class="field">
+              <label for="motion-ratio-front">Motion Ratio F</label>
+              <input type="number" id="motion-ratio-front" step="0.01">
+            </div>
+            <div class="field">
+              <label for="motion-ratio-rear">Motion Ratio R</label>
+              <input type="number" id="motion-ratio-rear" step="0.01">
+            </div>
+            <div class="field">
+              <label for="mm-per-turn">mm/turn at Spring</label>
+              <input type="number" id="mm-per-turn" step="0.01">
+            </div>
+            <div class="field">
+              <label for="unsprung-front-lb">Suspension Unsprung F (lb)</label>
+              <input type="number" id="unsprung-front-lb" step="0.1">
+            </div>
+            <div class="field">
+              <label for="unsprung-rear-lb">Suspension Unsprung R (lb)</label>
+              <input type="number" id="unsprung-rear-lb" step="0.1">
+            </div>
+            <div class="field">
+              <label for="arb-front">ARB F (lb/in @ wheel)</label>
+              <input type="number" id="arb-front" step="1">
+            </div>
+            <div class="field">
+              <label for="arb-rear">ARB R (lb/in @ wheel)</label>
+              <input type="number" id="arb-rear" step="1">
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3 class="section-title">Corners</h3>
+          <div class="corner-grid">
+            <div class="corner-panel">
+              <h4>Left Front</h4>
+              <div class="field-grid" id="corner-lf"></div>
+            </div>
+            <div class="corner-panel">
+              <h4>Right Front</h4>
+              <div class="field-grid" id="corner-rf"></div>
+            </div>
+            <div class="corner-panel">
+              <h4>Left Rear</h4>
+              <div class="field-grid" id="corner-lr"></div>
+            </div>
+            <div class="corner-panel">
+              <h4>Right Rear</h4>
+              <div class="field-grid" id="corner-rr"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3 class="section-title">Tires</h3>
+          <div class="corner-grid">
+            <div class="corner-panel">
+              <h4>Front</h4>
+              <div class="field-grid">
+                <div class="field">
+                  <label for="tire-front-size">Size</label>
+                  <input type="text" id="tire-front-size">
+                </div>
+                <div class="field">
+                  <label for="tire-front-rpm">Rev/Mile</label>
+                  <input type="number" id="tire-front-rpm" step="1">
+                </div>
+                <div class="field">
+                  <label for="tire-front-wheel-lb">Wheel+Tire (lb)</label>
+                  <input type="number" id="tire-front-wheel-lb" step="0.1">
+                </div>
+                <div class="field wide">
+                  <label for="tire-front-notes">Notes</label>
+                  <input type="text" id="tire-front-notes">
+                </div>
+              </div>
+            </div>
+            <div class="corner-panel">
+              <h4>Rear</h4>
+              <div class="field-grid">
+                <div class="field">
+                  <label for="tire-rear-size">Size</label>
+                  <input type="text" id="tire-rear-size">
+                </div>
+                <div class="field">
+                  <label for="tire-rear-rpm">Rev/Mile</label>
+                  <input type="number" id="tire-rear-rpm" step="1">
+                </div>
+                <div class="field">
+                  <label for="tire-rear-wheel-lb">Wheel+Tire (lb)</label>
+                  <input type="number" id="tire-rear-wheel-lb" step="0.1">
+                </div>
+                <div class="field wide">
+                  <label for="tire-rear-notes">Notes</label>
+                  <input type="text" id="tire-rear-notes">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3 class="section-title">Transmission</h3>
+          <div class="field-grid" style="margin-bottom: 1rem;">
+            <div class="field">
+              <label for="shift-rpm">Shift RPM</label>
+              <input type="number" id="shift-rpm" step="100">
+            </div>
+            <div class="field">
+              <label for="rev-limit">Rev Limit</label>
+              <input type="number" id="rev-limit" step="100">
+            </div>
+            <div class="field">
+              <label for="final-drive">Final Drive</label>
+              <input type="number" id="final-drive" step="0.001">
+            </div>
+          </div>
+          <div id="gears-container"></div>
+          <div class="chart-wrap" style="height: 300px; margin-top: 1rem;">
+            <canvas id="speed-chart"></canvas>
+          </div>
+        </div>
+
+        <div class="calculated">
+          <h4 class="calculated-title">Calculated Values</h4>
+          <div class="calculated-grid" id="calculated"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let setupData = null;
+
+    const cornerFields = [
+      { key: 'camber_deg', label: 'Camber (°)', step: 0.1 },
+      { key: 'caster', label: 'Caster', type: 'text' },
+      { key: 'toe_in', label: 'Toe (in)', step: 0.001 },
+      { key: 'spring_rate_lb', label: 'Spring Rate (lb)', step: 1 },
+      { key: 'spring_length_in', label: 'Spring Length (in)', step: 0.1 },
+      { key: 'corner_weight_with_driver_lb', label: 'Corner w/ Driver (lb)', step: 1 },
+      { key: 'ride_height_mm', label: 'Ride Height (mm)', step: 1 }
+    ];
+
+    function createCornerFields(containerId, cornerKey) {
+      const container = $(containerId);
+      container.innerHTML = '';
+      const isFront = cornerKey.includes('front');
+      const cornerId = toKebab(cornerKey);
+
+      cornerFields.forEach(f => {
+        if (f.key === 'caster' && !isFront) return;
+        const div = document.createElement('div');
+        div.className = 'field';
+        const inputType = f.type || 'number';
+        const fieldId = toKebab(f.key);
+        const inputId = `${cornerId}-${fieldId}`;
+        div.innerHTML = `
+          <label for="${inputId}">${f.label}</label>
+          <input type="${inputType}" id="${inputId}" ${f.step ? `step="${f.step}"` : ''}>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function populateForm(data) {
+      setupData = data;
+
+      $('name').value = data.name || '';
+      $('wheelbase-mm').value = data.vehicle?.wheelbase_mm || '';
+      $('cg-height-mm').value = data.vehicle?.cg_height_mm || '';
+      $('rh-correction-front').value = data.vehicle?.ride_height_correction_front_mm ?? '';
+      $('rh-correction-rear').value = data.vehicle?.ride_height_correction_rear_mm ?? '';
+      $('motion-ratio-front').value = data.motion_ratios?.front || '';
+      $('motion-ratio-rear').value = data.motion_ratios?.rear || '';
+      $('arb-front').value = data.anti_roll_bars?.front_wheel_rate_lb_in || '';
+      $('arb-rear').value = data.anti_roll_bars?.rear_wheel_rate_lb_in || '';
+
+      const cornerMap = {
+        'corner-lf': 'left_front',
+        'corner-rf': 'right_front',
+        'corner-lr': 'left_rear',
+        'corner-rr': 'right_rear'
+      };
+
+      Object.entries(cornerMap).forEach(([containerId, cornerKey]) => {
+        createCornerFields(containerId, cornerKey);
+        const cornerData = data.corners?.[cornerKey] || {};
+        const cornerId = toKebab(cornerKey);
+        cornerFields.forEach(f => {
+          if (f.key === 'caster' && !cornerKey.includes('front')) return;
+          const el = $(`${cornerId}-${toKebab(f.key)}`);
+          if (el) el.value = cornerData[f.key] ?? '';
+        });
+      });
+
+      $('tire-front-size').value = data.tires?.front?.size || '';
+      $('tire-front-rpm').value = data.tires?.front?.revolutions_per_mile || '';
+      $('tire-front-wheel-lb').value = data.tires?.front?.wheel_and_tire_lb || '';
+      $('tire-front-notes').value = data.tires?.front?.notes || '';
+      $('tire-rear-size').value = data.tires?.rear?.size || '';
+      $('tire-rear-rpm').value = data.tires?.rear?.revolutions_per_mile || '';
+      $('tire-rear-wheel-lb').value = data.tires?.rear?.wheel_and_tire_lb || '';
+      $('tire-rear-notes').value = data.tires?.rear?.notes || '';
+      $('unsprung-front-lb').value = data.tires?.front?.unsprung_weight_lb || '';
+      $('unsprung-rear-lb').value = data.tires?.rear?.unsprung_weight_lb || '';
+
+      $('shift-rpm').value = data.transmission?.shift_rpm || '';
+      $('rev-limit').value = data.transmission?.rev_limit || '';
+      $('final-drive').value = data.transmission?.final_drive || '';
+      $('mm-per-turn').value = data.spring_adjustment?.mm_per_turn_at_spring || '';
+
+      const gearsContainer = $('gears-container');
+      gearsContainer.innerHTML = '';
+      (data.transmission?.gears || []).forEach((g, i) => {
+        const row = document.createElement('div');
+        row.className = 'data-row';
+        row.innerHTML = `
+          <div class="field">
+            <label for="gear-${i}-ratio">Gear ${g.gear}</label>
+            <input type="number" id="gear-${i}-ratio" step="0.001" value="${g.ratio}">
+          </div>
+          <div class="field">
+            <label for="gear-${i}-mph">Max MPH</label>
+            <input type="text" id="gear-${i}-mph" readonly class="calculated-field">
+          </div>
+          <div class="field">
+            <label for="gear-${i}-notes">Notes</label>
+            <input type="text" id="gear-${i}-notes" value="${g.notes || ''}">
+          </div>
+        `;
+        gearsContainer.appendChild(row);
+      });
+
+      $('empty-state').style.display = 'none';
+      $('editor').classList.add('loaded');
+      updateCalculated();
+    }
+
+    function collectFormData() {
+      const cornerKeys = ['left_front', 'right_front', 'left_rear', 'right_rear'];
+
+      const corners = {};
+      cornerKeys.forEach(cornerKey => {
+        const isFront = cornerKey.includes('front');
+        const cornerId = toKebab(cornerKey);
+        corners[cornerKey] = {};
+        cornerFields.forEach(f => {
+          if (f.key === 'caster' && !isFront) return;
+          const el = $(`${cornerId}-${toKebab(f.key)}`);
+          if (el) {
+            corners[cornerKey][f.key] = f.type === 'text' ? el.value : parseFloat(el.value) || 0;
+          }
+        });
+      });
+
+      const gears = [];
+      const gearRows = document.querySelectorAll('#gears-container .data-row');
+      gearRows.forEach((row, i) => {
+        gears.push({
+          gear: i + 1,
+          ratio: parseFloat($(`gear-${i}-ratio`)?.value) || 0,
+          notes: $(`gear-${i}-notes`)?.value || ''
+        });
+      });
+
+      return {
+        name: $('name').value,
+        vehicle: {
+          wheelbase_mm: parseFloat($('wheelbase-mm').value) || 0,
+          cg_height_mm: parseFloat($('cg-height-mm').value) || 0,
+          ride_height_correction_front_mm: parseFloat($('rh-correction-front').value) || 0,
+          ride_height_correction_rear_mm: parseFloat($('rh-correction-rear').value) || 0
+        },
+        motion_ratios: {
+          front: parseFloat($('motion-ratio-front').value) || 0,
+          rear: parseFloat($('motion-ratio-rear').value) || 0
+        },
+        anti_roll_bars: {
+          front_wheel_rate_lb_in: parseFloat($('arb-front').value) || 0,
+          rear_wheel_rate_lb_in: parseFloat($('arb-rear').value) || 0
+        },
+        corners,
+        tires: {
+          front: {
+            size: $('tire-front-size').value,
+            revolutions_per_mile: parseFloat($('tire-front-rpm').value) || 0,
+            wheel_and_tire_lb: parseFloat($('tire-front-wheel-lb').value) || 0,
+            unsprung_weight_lb: parseFloat($('unsprung-front-lb').value) || 0,
+            notes: $('tire-front-notes').value
+          },
+          rear: {
+            size: $('tire-rear-size').value,
+            revolutions_per_mile: parseFloat($('tire-rear-rpm').value) || 0,
+            wheel_and_tire_lb: parseFloat($('tire-rear-wheel-lb').value) || 0,
+            unsprung_weight_lb: parseFloat($('unsprung-rear-lb').value) || 0,
+            notes: $('tire-rear-notes').value
+          },
+          stock_front: setupData?.tires?.stock_front || '',
+          stock_rear: setupData?.tires?.stock_rear || ''
+        },
+        transmission: {
+          shift_rpm: parseFloat($('shift-rpm').value) || 0,
+          rev_limit: parseFloat($('rev-limit').value) || 0,
+          final_drive: parseFloat($('final-drive').value) || 0,
+          gears
+        },
+        spring_adjustment: {
+          mm_per_turn_at_spring: parseFloat($('mm-per-turn').value) || 0
+        }
+      };
+    }
+
+
+    function updateCalculated() {
+      const data = collectFormData();
+      const calc = $('calculated');
+
+      const mrF = data.motion_ratios.front;
+      const mrR = data.motion_ratios.rear;
+      const springF = data.corners.left_front.spring_rate_lb;
+      const springR = data.corners.left_rear.spring_rate_lb;
+      const wheelRateF = springF * mrF * mrF;
+      const wheelRateR = springR * mrR * mrR;
+
+      const lfWeight = data.corners.left_front.corner_weight_with_driver_lb;
+      const rfWeight = data.corners.right_front.corner_weight_with_driver_lb;
+      const lrWeight = data.corners.left_rear.corner_weight_with_driver_lb;
+      const rrWeight = data.corners.right_rear.corner_weight_with_driver_lb;
+      const frontWeight = lfWeight + rfWeight;
+      const rearWeight = lrWeight + rrWeight;
+      const leftWeight = lfWeight + lrWeight;
+      // Cross weight (LF + RR diagonal)
+      const diagWeight = lfWeight + rrWeight;
+      const totalWeight = frontWeight + rearWeight;
+      const frontBias = totalWeight > 0 ? (frontWeight / totalWeight * 100) : 0;
+      const leftBias = totalWeight > 0 ? (leftWeight / totalWeight * 100) : 0;
+      const crossWeight = totalWeight > 0 ? (diagWeight / totalWeight * 100) : 0;
+
+      const unsprungF = (data.tires?.front?.unsprung_weight_lb || 0) + (data.tires?.front?.wheel_and_tire_lb || 0);
+      const unsprungR = (data.tires?.rear?.unsprung_weight_lb || 0) + (data.tires?.rear?.wheel_and_tire_lb || 0);
+      const sprungLF = lfWeight - unsprungF;
+      const sprungLR = lrWeight - unsprungR;
+      const freqF = wheelRateF > 0 && sprungLF > 0 ? Math.sqrt(wheelRateF * G_IN / sprungLF) / (2 * Math.PI) : 0;
+      const freqR = wheelRateR > 0 && sprungLR > 0 ? Math.sqrt(wheelRateR * G_IN / sprungLR) / (2 * Math.PI) : 0;
+      const freqRatio = freqR > 0 ? freqF / freqR : 0;
+
+      const mmPerTurn = data.spring_adjustment.mm_per_turn_at_spring;
+      const turnF = mrF > 0 ? mmPerTurn / mrF : 0;
+      const turnR = mrR > 0 ? mmPerTurn / mrR : 0;
+
+      const frontTireData = {
+        revolutions_per_mile: data.tires?.front?.revolutions_per_mile || 0,
+        size: data.tires?.front?.size
+      };
+      const rearTireData = {
+        revolutions_per_mile: data.tires?.rear?.revolutions_per_mile || 0,
+        size: data.tires?.rear?.size
+      };
+      const tireHeightF = getTireDiameter(frontTireData);
+      const tireHeightR = getTireDiameter(rearTireData);
+
+      // Stock tire diameters
+      const stockFrontDia = parseTireDiameter(data.tires?.stock_front);
+      const stockRearDia = parseTireDiameter(data.tires?.stock_rear);
+
+      // Ride height change from tire size difference (radius change = diameter change / 2)
+      const rhChangeF = (tireHeightF && stockFrontDia) ? (tireHeightF - stockFrontDia) / 2 : null;
+      const rhChangeR = (tireHeightR && stockRearDia) ? (tireHeightR - stockRearDia) / 2 : null;
+
+      // Geometry corrections
+      const geoCorrectF = data.vehicle?.ride_height_correction_front_mm || 0;
+      const geoCorrectR = data.vehicle?.ride_height_correction_rear_mm || 0;
+
+      // Geometric ride height vs stock (tire change - geometry correction)
+      const geoRhF = rhChangeF !== null ? rhChangeF - geoCorrectF : null;
+      const geoRhR = rhChangeR !== null ? rhChangeR - geoCorrectR : null;
+
+      // Chassis rake (rear - front, positive = rear higher = nose down)
+      const avgRhF = ((data.corners.left_front.ride_height_mm || 0) + (data.corners.right_front.ride_height_mm || 0)) / 2;
+      const avgRhR = ((data.corners.left_rear.ride_height_mm || 0) + (data.corners.right_rear.ride_height_mm || 0)) / 2;
+      const chassisRake = avgRhR - avgRhF;
+
+      const revLimit = data.transmission?.rev_limit || 0;
+      const finalDrive = data.transmission?.final_drive || 0;
+      const gears = data.transmission?.gears || [];
+      
+      let rearRevPerMile = rearTireData.revolutions_per_mile;
+      if (!rearRevPerMile && tireHeightR) {
+        const circumferenceMm = tireHeightR * Math.PI;
+        rearRevPerMile = MM_PER_MILE / circumferenceMm;
+      }
+      
+      gears.forEach((g, i) => {
+        const mphEl = $(`gear-${i}-mph`);
+        if (mphEl) {
+          if (revLimit && finalDrive && g.ratio && rearRevPerMile) {
+            const speed = (revLimit / g.ratio / finalDrive) * 60 / rearRevPerMile;
+            mphEl.value = speed.toFixed(1);
+          } else {
+            mphEl.value = '—';
+          }
+        }
+      });
+
+      const values = [
+        { label: 'Total Weight', value: `${totalWeight.toFixed(0)} lb` },
+        { label: 'Front Bias', value: `${frontBias.toFixed(1)}%` },
+        { label: 'Left Bias', value: `${leftBias.toFixed(1)}%` },
+        { label: 'Cross Weight', value: `${crossWeight.toFixed(1)}%` },
+        { label: 'Wheel Rate F', value: `${wheelRateF.toFixed(1)} lb/in` },
+        { label: 'Wheel Rate R', value: `${wheelRateR.toFixed(1)} lb/in` },
+        { label: 'Wheel Freq F', value: `${freqF.toFixed(2)} Hz` },
+        { label: 'Wheel Freq R', value: `${freqR.toFixed(2)} Hz` },
+        { label: 'Freq Ratio', value: `${freqRatio.toFixed(2)}` },
+        { label: 'Turn at Wheel F', value: `${turnF.toFixed(2)} mm` },
+        { label: 'Turn at Wheel R', value: `${turnR.toFixed(2)} mm` },
+        { label: 'Tire Height F', value: tireHeightF ? `${tireHeightF.toFixed(1)} mm` : '—' },
+        { label: 'Tire Height R', value: tireHeightR ? `${tireHeightR.toFixed(1)} mm` : '—' },
+        { label: 'Chassis Rake', value: `${chassisRake.toFixed(1)} mm` },
+        { label: 'RH Δ Tire F', value: rhChangeF !== null ? `${rhChangeF >= 0 ? '+' : ''}${rhChangeF.toFixed(1)} mm` : '—' },
+        { label: 'RH Δ Tire R', value: rhChangeR !== null ? `${rhChangeR >= 0 ? '+' : ''}${rhChangeR.toFixed(1)} mm` : '—' },
+        { label: 'RH Δ Geo F', value: geoRhF !== null ? `${geoRhF >= 0 ? '+' : ''}${geoRhF.toFixed(1)} mm` : '—' },
+        { label: 'RH Δ Geo R', value: geoRhR !== null ? `${geoRhR >= 0 ? '+' : ''}${geoRhR.toFixed(1)} mm` : '—' }
+      ];
+
+      calc.innerHTML = values.map(v => `
+        <div class="calc-item">
+          <span class="label">${v.label}:</span>
+          <span class="value">${v.value}</span>
+        </div>
+      `).join('');
+
+      updateSpeedChart(data, rearRevPerMile);
+    }
+
+    let speedChart = null;
+    const gearColors = ['#e85d04', '#f48c06', '#faa307', '#ffba08', '#9ef01a', '#38b000'];
+
+    function updateSpeedChart(data, rearRevPerMile) {
+      const ctx = $('speed-chart');
+      if (!ctx) return;
+
+      const revLimit = data.transmission?.rev_limit || 0;
+      const shiftRpm = data.transmission?.shift_rpm || revLimit;
+      const finalDrive = data.transmission?.final_drive || 0;
+      const gears = data.transmission?.gears || [];
+
+      if (!revLimit || !finalDrive || !rearRevPerMile || gears.length === 0) {
+        if (speedChart) {
+          speedChart.destroy();
+          speedChart = null;
+        }
+        return;
+      }
+
+      const datasets = gears.map((g, i) => {
+        if (!g.ratio) return null;
+        const points = [];
+        for (let rpm = 1000; rpm <= revLimit; rpm += 250) {
+          const speed = (rpm / g.ratio / finalDrive) * 60 / rearRevPerMile;
+          points.push({ x: speed, y: rpm });
+        }
+        const maxSpeed = (revLimit / g.ratio / finalDrive) * 60 / rearRevPerMile;
+        points.push({ x: maxSpeed, y: revLimit });
+        return {
+          label: `Gear ${i + 1}`,
+          data: points,
+          borderColor: gearColors[i % gearColors.length],
+          backgroundColor: gearColors[i % gearColors.length],
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0
+        };
+      }).filter(Boolean);
+
+      // Build shift trace - shows the actual path through gears when shifting
+      const shiftTrace = [];
+      // Track peak speed indices and values for each gear
+      const gearPeaks = [];
+      const validGears = gears.filter(g => g.ratio);
+      for (let i = 0; i < validGears.length; i++) {
+        const g = validGears[i];
+        const isLastGear = i === validGears.length - 1;
+        const startRpm = i === 0 ? 1000 : (() => {
+          const prevShiftSpeed = (shiftRpm / validGears[i - 1].ratio / finalDrive) * 60 / rearRevPerMile;
+          return prevShiftSpeed * g.ratio * finalDrive * rearRevPerMile / 60;
+        })();
+        const endRpm = isLastGear ? revLimit : shiftRpm;
+        const startSpeed = (startRpm / g.ratio / finalDrive) * 60 / rearRevPerMile;
+        const endSpeed = (endRpm / g.ratio / finalDrive) * 60 / rearRevPerMile;
+        shiftTrace.push({ x: startSpeed, y: startRpm });
+        shiftTrace.push({ x: endSpeed, y: endRpm });
+        gearPeaks.push({ index: shiftTrace.length - 1, speed: endSpeed, gear: i + 1 });
+      }
+
+      // Style points: larger for peak points at end of each gear
+      const peakIndices = new Set(gearPeaks.map(p => p.index));
+      datasets.unshift({
+        label: 'Shift Trace',
+        data: shiftTrace,
+        borderColor: '#fff',
+        backgroundColor: '#fff',
+        borderWidth: 3,
+        borderDash: [],
+        pointRadius: shiftTrace.map((_, i) => peakIndices.has(i) ? 5 : 2),
+        pointBackgroundColor: shiftTrace.map((_, i) => peakIndices.has(i) ? '#e85d04' : '#fff'),
+        pointBorderColor: '#fff',
+        pointBorderWidth: shiftTrace.map((_, i) => peakIndices.has(i) ? 2 : 0),
+        tension: 0,
+        order: -1
+      });
+
+      const maxSpeed = Math.max(...gears.filter(g => g.ratio).map(g => 
+        (revLimit / g.ratio / finalDrive) * 60 / rearRevPerMile
+      ));
+
+      const peakLabelPlugin = {
+        id: 'peakLabel',
+        afterDatasetsDraw(chart) {
+          const { ctx } = chart;
+          const meta = chart.getDatasetMeta(0);
+          if (!meta.data.length) return;
+          ctx.save();
+          ctx.font = 'bold 11px JetBrains Mono, monospace';
+          ctx.fillStyle = '#e85d04';
+          for (const peak of gearPeaks) {
+            const point = meta.data[peak.index];
+            if (!point) continue;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(`${peak.speed.toFixed(0)}`, point.x, point.y - 8);
+          }
+          ctx.restore();
+        }
+      };
+
+      if (speedChart) {
+        speedChart.destroy();
+        speedChart = null;
+      }
+
+      speedChart = new Chart(ctx, {
+        type: 'line',
+        data: { datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { intersect: false, mode: 'nearest' },
+          plugins: {
+            legend: { 
+              display: true, 
+              position: 'top',
+              labels: { color: '#888', boxWidth: 12, padding: 8 }
+            },
+            tooltip: {
+              callbacks: {
+                label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(0)} RPM @ ${ctx.parsed.x.toFixed(1)} mph`
+              }
+            }
+          },
+          scales: {
+            x: {
+              type: 'linear',
+              min: 0,
+              max: niceMax(maxSpeed),
+              title: { display: true, text: 'Speed (mph)', color: '#888' },
+              grid: { color: '#333' },
+              ticks: { color: '#888' }
+            },
+            y: {
+              type: 'linear',
+              min: 0,
+              max: niceMax(revLimit),
+              title: { display: true, text: 'RPM', color: '#888' },
+              grid: { color: '#333' },
+              ticks: { color: '#888' }
+            }
+          }
+        },
+        plugins: [peakLabelPlugin]
+      });
+    }
+
+    $('load-default').addEventListener('click', () => populateForm(DEFAULT_SETUP));
+    $('save-btn').addEventListener('click', () => downloadJson(collectFormData(), 'setup.json'));
+    $('editor').addEventListener('input', updateCalculated);
+
+    populateForm(DEFAULT_SETUP);
+  </script>
+</body>
+</html>
