@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="favicon.png">
   <title>Dyno Data</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
@@ -129,24 +130,6 @@
       color: var(--accent);
       font-weight: 700;
     }
-    .shift-legend {
-      display: flex;
-      gap: 1.5rem;
-      flex-wrap: wrap;
-      margin-top: 0.75rem;
-      font-size: 0.8rem;
-      color: var(--muted);
-    }
-    .shift-legend span {
-      display: flex;
-      align-items: center;
-      gap: 0.4rem;
-    }
-    .shift-legend .dot {
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-    }
   </style>
 </head>
 <body>
@@ -166,7 +149,6 @@
       <div class="chart-wrap" style="height: 400px;">
         <canvas id="dyno-chart"></canvas>
       </div>
-      <div class="shift-legend" id="shift-legend"></div>
     </div>
 
     <div class="panel">
@@ -371,10 +353,6 @@
       shiftTableBody.appendChild(tr);
     });
 
-    const shiftLegendEl = $('shift-legend');
-    shiftLegendEl.innerHTML = shiftPoints.map(sp => 
-      `<span><span class="dot" style="background: ${sp.color};"></span>${sp.from}→${sp.to}: ${sp.optimalRpm} RPM</span>`
-    ).join('');
 
     const tableBody = document.querySelector('#data-table tbody');
     dynoData.forEach(d => {

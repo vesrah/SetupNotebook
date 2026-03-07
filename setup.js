@@ -295,5 +295,6 @@ const DEFAULT_SETUP = {
       "unsprung_weight_lb": 47,
       "wheel_and_tire_lb": 39
     }
-  }
+  },
+  "updated_at": "2026-03-06"
 };
