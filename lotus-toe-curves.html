@@ -306,11 +306,12 @@
       chartRear.update('none');
     }
 
-    basePosEl.addEventListener('input', update);
-    baseToeEl.addEventListener('input', update);
-    basePosRearEl.addEventListener('input', update);
-    baseToeRearEl.addEventListener('input', update);
-    useMmEl.addEventListener('change', update);
+    const debouncedUpdate = debounce(update, 300);
+    basePosEl.addEventListener('input', debouncedUpdate);
+    baseToeEl.addEventListener('input', debouncedUpdate);
+    basePosRearEl.addEventListener('input', debouncedUpdate);
+    baseToeRearEl.addEventListener('input', debouncedUpdate);
+    useMmEl.addEventListener('change', debouncedUpdate);
     update();
   </script>
 </body>

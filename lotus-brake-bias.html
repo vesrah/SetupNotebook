@@ -513,6 +513,7 @@
       if (preset) { applyingPreset = true; applyRearPreset(preset); update(); applyingPreset = false; }
     });
 
+    const debouncedUpdate = debounce(update, 300);
     const frontPresetFieldIds = ['pist1-front-d-mm', 'pist2-front-d-mm', 'rotor-front-d-mm', 'pad-front-height-mm'];
     const rearPresetFieldIds = ['pist1-rear-d-mm', 'pist2-rear-d-mm', 'rotor-rear-d-mm', 'pad-rear-height-mm'];
     frontPresetFieldIds.forEach(id => {
@@ -535,8 +536,8 @@
      'pad-front-height-mm','pad-rear-height-mm','front-mu','rear-mu','tire-front-section-width-mm','tire-front-aspect-ratio','tire-front-rim-d-in',
      'tire-rear-section-width-mm','tire-rear-aspect-ratio','tire-rear-rim-d-in','k-tire-front','k-tire-rear'].forEach(id => {
       const el = $(id);
-      if (el) el.addEventListener('input', update);
-      if (el && el.tagName === 'SELECT') el.addEventListener('change', update);
+      if (el) el.addEventListener('input', debouncedUpdate);
+      if (el && el.tagName === 'SELECT') el.addEventListener('change', debouncedUpdate);
     });
 
     function parseTireSize(size) {

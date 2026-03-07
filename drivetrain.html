@@ -412,10 +412,15 @@
     updateGearMph();
     updateSpeedChart();
     updateShiftPointsTableAndDynoAnnotations();
-    $('shift-rpm')?.addEventListener('input', () => { updateGearMph(); updateSpeedChart(); updateShiftPointsTableAndDynoAnnotations(); });
-    $('rev-limit')?.addEventListener('input', () => { updateGearMph(); updateSpeedChart(); updateShiftPointsTableAndDynoAnnotations(); });
-    $('final-drive')?.addEventListener('input', () => { updateGearMph(); updateSpeedChart(); updateShiftPointsTableAndDynoAnnotations(); });
-    document.getElementById('gears-container')?.addEventListener('input', () => { updateGearMph(); updateSpeedChart(); updateShiftPointsTableAndDynoAnnotations(); });
+    const debouncedTransmissionUpdate = debounce(() => {
+      updateGearMph();
+      updateSpeedChart();
+      updateShiftPointsTableAndDynoAnnotations();
+    }, 300);
+    $('shift-rpm')?.addEventListener('input', debouncedTransmissionUpdate);
+    $('rev-limit')?.addEventListener('input', debouncedTransmissionUpdate);
+    $('final-drive')?.addEventListener('input', debouncedTransmissionUpdate);
+    document.getElementById('gears-container')?.addEventListener('input', debouncedTransmissionUpdate);
     $('load-default-drivetrain')?.addEventListener('click', () => { populateTransmissionFrom(DEFAULT_SETUP); updateGearMph(); updateSpeedChart(); updateShiftPointsTableAndDynoAnnotations(); });
     $('save-drivetrain-btn')?.addEventListener('click', () => { const merged = { ...DEFAULT_SETUP, ...getDrivetrainFormData() }; downloadJson(merged, 'setup.json'); });
 
