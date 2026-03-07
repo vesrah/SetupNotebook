@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" href="favicon.png">
-  <title>Brake Force & Ideal Curve</title>
+  <title>Brake Bias</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <script src="utils.js"></script>
   <script src="setup.js"></script>
@@ -18,7 +18,7 @@
 <body>
   <div class="header">
     <a href="index.html" class="back-link">Index</a>
-    <h1>Brake force & ideal curve</h1>
+    <h1>Brake Bias</h1>
   </div>
   <div class="layout wide">
     <div class="panel">
@@ -337,6 +337,7 @@
     }
 
     let chart = null;
+    let chartCache = null;
     function ensureChart() {
       if (chart) return chart;
       const ctx = $('chart').getContext('2d');
@@ -429,12 +430,18 @@
 
     function update() {
       const p = getParams();
+      const cacheKey = JSON.stringify(p);
       const out = compute(p);
 
       $('results').innerHTML =
         'Front max brake force: <strong>' + Math.round(out.front_max_actual) + ' N</strong> &nbsp; ' +
         'Rear max brake force: <strong>' + Math.round(out.rear_max_actual) + ' N</strong> &nbsp; ' +
         'Front brake bias: <strong>' + out.front_bias_pct.toFixed(1) + ' %</strong>';
+
+      if (chartCache === cacheKey && chart) {
+        return;
+      }
+      chartCache = cacheKey;
 
       ensureChart();
 

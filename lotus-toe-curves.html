@@ -122,6 +122,7 @@
 
     let chart = null;
     let chartRear = null;
+    let chartCache = null;
 
     function createChartOptions() {
       return {
@@ -216,11 +217,23 @@
       const rawStep = (2 * range) / maxTicks;
       let step = steps.find(s => s >= rawStep) || steps[steps.length - 1];
       if (step < rawStep) step = steps[steps.length - 1];
-      const niceMax = Math.ceil(range / step) * step;
-      return { min: -niceMax, max: niceMax, stepSize: step };
+      const axisMax = Math.ceil(range / step) * step;
+      return { min: -axisMax, max: axisMax, stepSize: step };
     }
 
     function update() {
+      const cacheKey = JSON.stringify({
+        useMm: useMmEl.checked,
+        basePosF: basePosEl.value,
+        baseToeF: baseToeEl.value,
+        basePosR: basePosRearEl.value,
+        baseToeR: baseToeRearEl.value
+      });
+      if (chartCache === cacheKey && chart && chartRear) {
+        return;
+      }
+      chartCache = cacheKey;
+
       const useMm = useMmEl.checked;
       const scale = useMm ? IN_TO_MM : 1;
       const pad = 0.05;

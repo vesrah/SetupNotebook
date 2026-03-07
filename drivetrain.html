@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="favicon.png">
+  <title>Drivetrain</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+  <script src="utils.js"></script>
+  <script src="setup.js"></script>
+  <link rel="stylesheet" href="shared.css">
+  <style>
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    .data-table th,
+    .data-table td {
+      padding: 0.35rem 0.5rem;
+      text-align: right;
+      border-bottom: 1px solid var(--border);
+    }
+    .data-table th {
+      background: var(--surface);
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+    }
+    .data-table td:first-child,
+    .data-table th:first-child {
+      text-align: left;
+    }
+    .data-table tbody tr:hover {
+      background: var(--surface);
+    }
+    .data-table .highlight {
+      background: rgba(255, 186, 8, 0.15);
+      font-weight: 600;
+    }
+    .data-table .max-row {
+      background: rgba(56, 176, 0, 0.2);
+      font-weight: 700;
+    }
+    .table-scroll {
+      max-height: 400px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+    }
+    .calc-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .calc-table th,
+    .calc-table td {
+      padding: 0.5rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .calc-table th {
+      width: 50%;
+      color: var(--muted);
+      font-weight: normal;
+    }
+    .calc-table td {
+      font-weight: 600;
+    }
+    .calc-table tr:last-child th,
+    .calc-table tr:last-child td {
+      border-bottom: 1px solid var(--border);
+    }
+    .avg-breakdown {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: var(--surface);
+      border-radius: 4px;
+    }
+    .avg-formula {
+      font-family: monospace;
+      font-size: 0.9rem;
+      margin-top: 0.5rem;
+    }
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .summary-card {
+      background: var(--surface);
+      padding: 1rem;
+      border-radius: 4px;
+      text-align: center;
+    }
+    .summary-card .value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .summary-card .label {
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+    .summary-card .sub {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .shift-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    .shift-table th,
+    .shift-table td {
+      padding: 0.5rem 0.75rem;
+      text-align: right;
+      border-bottom: 1px solid var(--border);
+    }
+    .shift-table th {
+      background: var(--surface);
+      font-weight: 600;
+    }
+    .shift-table td:first-child,
+    .shift-table th:first-child {
+      text-align: left;
+    }
+    .shift-table .shift-rpm {
+      color: var(--accent);
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <a href="index.html" class="back-link">Index</a>
+    <h1>Drivetrain</h1>
+  </div>
+  <div class="layout wide">
+
+    <div class="panel">
+      <h2>Power Summary</h2>
+      <div class="summary-grid" id="summary"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Power Curve</h2>
+      <div class="chart-wrap" style="height: 400px;">
+        <canvas id="dyno-chart"></canvas>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>NASA Avg HP Calculation</h2>
+      <p class="hint">Based on NASA rules: Uses 250 RPM increment data points. Since max RPM &gt; 7000, uses 7 highest HP values plus Max HP, divided by 8.</p>
+      <table class="calc-table" id="calc-summary"></table>
+      <div class="avg-breakdown" id="avg-breakdown"></div>
+    </div>
+
+    <div class="panel">
+      <details id="full-data-table-details">
+        <summary><h2 style="display: inline;">Full Data Table</h2></summary>
+        <p class="hint">Highlighted rows are 250 RPM increments used for NASA Avg HP calculation. Green row is max HP.</p>
+        <div class="table-scroll">
+          <table class="data-table" id="data-table">
+            <thead>
+              <tr>
+                <th>RPM</th>
+                <th>HP</th>
+                <th>Torque (lb-ft)</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </details>
+    </div>
+
+    <div class="panel">
+      <h2>Transmission</h2>
+      <p class="hint">Gear ratios, rev limit, and speed chart. Tire rev/mile from setup (edit on Chassis page). Save merges drivetrain into full setup.</p>
+      <div class="file-controls" style="margin-bottom: 1rem;">
+        <button type="button" id="load-default-drivetrain">Load Default</button>
+        <button type="button" id="save-drivetrain-btn" class="secondary">Save JSON</button>
+      </div>
+      <div class="field-grid" style="margin-bottom: 1rem;">
+        <div class="field">
+          <label for="shift-rpm">Shift RPM</label>
+          <input type="number" id="shift-rpm" step="100">
+        </div>
+        <div class="field">
+          <label for="rev-limit">Rev Limit</label>
+          <input type="number" id="rev-limit" step="100">
+        </div>
+        <div class="field">
+          <label for="final-drive">Final Drive</label>
+          <input type="number" id="final-drive" step="0.001">
+        </div>
+      </div>
+      <div id="gears-container"></div>
+      <div class="chart-wrap" style="height: 300px; margin-top: 1rem;">
+        <canvas id="speed-chart"></canvas>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Optimal Shift Points</h2>
+      <p class="hint">Shift point is where HP in the next gear (at dropped RPM) equals or exceeds current gear HP. Shift earlier than redline when beneficial.</p>
+      <table class="shift-table" id="shift-table">
+        <thead>
+          <tr>
+            <th>Shift</th>
+            <th>Optimal RPM</th>
+            <th>HP at Shift</th>
+            <th>Drop to RPM</th>
+            <th>HP After Shift</th>
+            <th>vs Redline</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    'use strict';
+
+    const data = DEFAULT_SETUP;
+    const dynoData = data.drivetrain?.engine?.dyno?.data || [];
+    if (dynoData.length === 0) {
+      const layout = document.querySelector('.layout');
+      const summaryPanel = document.getElementById('summary')?.closest('.panel');
+      if (summaryPanel) {
+        const msg = document.createElement('div');
+        msg.className = 'panel';
+        msg.innerHTML = '<p>No dyno data in setup.js. Add drivetrain.engine.dyno.data.</p>';
+        layout.insertBefore(msg, summaryPanel);
+      }
+    }
+
+    function populateTransmission() {
+      populateTransmissionFrom(data);
+    }
+    function populateTransmissionFrom(src) {
+      $('shift-rpm').value = src.drivetrain?.engine?.shift_rpm || '';
+      $('rev-limit').value = src.drivetrain?.engine?.rev_limit || '';
+      $('final-drive').value = src.drivetrain?.transmission?.final_drive || '';
+      const gearsContainer = $('gears-container');
+      if (!gearsContainer) return;
+      gearsContainer.innerHTML = '';
+      (src.drivetrain?.transmission?.gears || []).forEach((g, i) => {
+        const row = document.createElement('div');
+        row.className = 'data-row';
+        row.innerHTML = `
+          <div class="field">
+            <label for="gear-${i}-ratio">Gear ${g.gear}</label>
+            <input type="number" id="gear-${i}-ratio" step="0.001" value="${g.ratio}">
+          </div>
+          <div class="field">
+            <label for="gear-${i}-mph">Max MPH</label>
+            <input type="text" id="gear-${i}-mph" readonly class="calculated-field">
+          </div>
+          <div class="field">
+            <label for="gear-${i}-notes">Notes</label>
+            <input type="text" id="gear-${i}-notes" value="${(g.notes || '').replace(/"/g, '&quot;')}">
+          </div>
+        `;
+        gearsContainer.appendChild(row);
+      });
+    }
+
+    function getDrivetrainFormData() {
+      const gears = [];
+      document.querySelectorAll('#gears-container .data-row').forEach((row, i) => {
+        gears.push({
+          gear: i + 1,
+          ratio: parseFloat($(`gear-${i}-ratio`)?.value) || 0,
+          notes: $(`gear-${i}-notes`)?.value || ''
+        });
+      });
+      return {
+        drivetrain: {
+          engine: { shift_rpm: parseFloat($('shift-rpm').value) || 0, rev_limit: parseFloat($('rev-limit').value) || 0 },
+          transmission: { final_drive: parseFloat($('final-drive').value) || 0, gears }
+        }
+      };
+    }
+
+    let speedChart = null;
+    let speedChartCache = null;
+    const gearColors = ['#e85d04', '#f48c06', '#faa307', '#ffba08', '#9ef01a', '#38b000'];
+
+    function updateSpeedChart() {
+      const ctx = $('speed-chart');
+      if (!ctx) return;
+      const form = getDrivetrainFormData();
+      const revLimit = form.drivetrain.engine.rev_limit || 0;
+      const shiftRpm = form.drivetrain.engine.shift_rpm || revLimit;
+      const finalDrive = form.drivetrain.transmission.final_drive || 0;
+      const gears = form.drivetrain.transmission.gears || [];
+      let rearRevPerMile = data.tires?.rear?.revolutions_per_mile || 0;
+      if (!rearRevPerMile && data.tires?.rear?.size) {
+        const tireHeight = getTireDiameter({ size: data.tires?.rear?.size, revolutions_per_mile: 0 });
+        if (tireHeight) rearRevPerMile = MM_PER_MILE / (tireHeight * Math.PI);
+      }
+      if (!revLimit || !finalDrive || !rearRevPerMile || gears.length === 0) {
+        if (speedChart) { speedChart.destroy(); speedChart = null; speedChartCache = null; }
+        return;
+      }
+      const cacheKey = JSON.stringify({ revLimit, shiftRpm, finalDrive, ratios: gears.map(g => g.ratio), rearRevPerMile });
+      if (speedChartCache === cacheKey && speedChart) return;
+      speedChartCache = cacheKey;
+      const datasets = gears.map((g, i) => {
+        if (!g.ratio) return null;
+        const points = [];
+        for (let rpm = 1000; rpm <= revLimit; rpm += 250) {
+          points.push({ x: (rpm / g.ratio / finalDrive) * 60 / rearRevPerMile, y: rpm });
+        }
+        points.push({ x: (revLimit / g.ratio / finalDrive) * 60 / rearRevPerMile, y: revLimit });
+        return { label: `Gear ${i + 1}`, data: points, borderColor: gearColors[i % gearColors.length], backgroundColor: gearColors[i % gearColors.length], borderWidth: 2, pointRadius: 0, tension: 0 };
+      }).filter(Boolean);
+      const shiftTrace = [];
+      const gearPeaks = [];
+      const validGears = gears.filter(g => g.ratio);
+      for (let i = 0; i < validGears.length; i++) {
+        const g = validGears[i];
+        const startRpm = i === 0 ? 1000 : (() => {
+          const prevSpeed = (shiftRpm / validGears[i - 1].ratio / finalDrive) * 60 / rearRevPerMile;
+          return prevSpeed * g.ratio * finalDrive * rearRevPerMile / 60;
+        })();
+        const endRpm = i === validGears.length - 1 ? revLimit : shiftRpm;
+        const startRpmR = Math.round(startRpm);
+        const endRpmR = Math.round(endRpm);
+        shiftTrace.push({ x: (startRpmR / g.ratio / finalDrive) * 60 / rearRevPerMile, y: startRpmR }, { x: (endRpmR / g.ratio / finalDrive) * 60 / rearRevPerMile, y: endRpmR });
+        gearPeaks.push(shiftTrace.length - 1);
+      }
+      const peakIndices = new Set(gearPeaks);
+      datasets.unshift({
+        label: 'Shift Trace',
+        data: shiftTrace,
+        borderColor: '#fff',
+        backgroundColor: '#fff',
+        borderWidth: 3,
+        pointRadius: shiftTrace.map((_, i) => peakIndices.has(i) ? 5 : 2),
+        pointBackgroundColor: shiftTrace.map((_, i) => peakIndices.has(i) ? '#e85d04' : '#fff'),
+        pointBorderColor: '#fff',
+        tension: 0,
+        order: -1
+      });
+      const maxSpeed = Math.max(...validGears.map(g => (revLimit / g.ratio / finalDrive) * 60 / rearRevPerMile));
+      const peakLabelPlugin = {
+        id: 'peakLabel',
+        afterDatasetsDraw(chart) {
+          const meta = chart.getDatasetMeta(0);
+          if (!meta.data.length) return;
+          chart.ctx.save();
+          chart.ctx.font = 'bold 11px monospace';
+          chart.ctx.fillStyle = '#e85d04';
+          gearPeaks.forEach((idx) => {
+            const point = meta.data[idx];
+            if (point) {
+              const speed = shiftTrace[idx].x;
+              chart.ctx.textAlign = 'center';
+              chart.ctx.textBaseline = 'bottom';
+              chart.ctx.fillText(speed.toFixed(0), point.x, point.y - 8);
+            }
+          });
+          chart.ctx.restore();
+        }
+      };
+      if (speedChart) { speedChart.destroy(); speedChart = null; }
+      speedChart = new Chart(ctx, {
+        type: 'line',
+        data: { datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { intersect: false, mode: 'nearest' },
+          plugins: {
+            legend: { display: true, position: 'top', labels: { color: '#888' } },
+            tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${Math.round(c.parsed.y)} RPM @ ${c.parsed.x.toFixed(1)} mph` } }
+          },
+          scales: {
+            x: { type: 'linear', min: 0, max: niceMax(maxSpeed), title: { display: true, text: 'Speed (mph)', color: '#888' }, grid: { color: '#333' }, ticks: { color: '#888' } },
+            y: { type: 'linear', min: 0, max: niceMax(revLimit), title: { display: true, text: 'RPM', color: '#888' }, grid: { color: '#333' }, ticks: { color: '#888' } }
+          }
+        },
+        plugins: [peakLabelPlugin]
+      });
+    }
+
+    function updateGearMph() {
+      const form = getDrivetrainFormData();
+      const revLimit = form.drivetrain.engine.rev_limit || 0;
+      const finalDrive = form.drivetrain.transmission.final_drive || 0;
+      const gears = form.drivetrain.transmission.gears || [];
+      let rearRevPerMile = data.tires?.rear?.revolutions_per_mile || 0;
+      if (!rearRevPerMile && data.tires?.rear?.size) {
+        const tireHeight = getTireDiameter({ size: data.tires?.rear?.size, revolutions_per_mile: 0 });
+        if (tireHeight) rearRevPerMile = MM_PER_MILE / (tireHeight * Math.PI);
+      }
+      gears.forEach((g, i) => {
+        const mphEl = $(`gear-${i}-mph`);
+        if (mphEl && revLimit && finalDrive && g.ratio && rearRevPerMile) {
+          mphEl.value = ((revLimit / g.ratio / finalDrive) * 60 / rearRevPerMile).toFixed(1);
+        } else if (mphEl) mphEl.value = '—';
+      });
+    }
+
+    populateTransmission();
+    updateGearMph();
+    updateSpeedChart();
+    updateShiftPointsTableAndDynoAnnotations();
+    $('shift-rpm')?.addEventListener('input', () => { updateGearMph(); updateSpeedChart(); updateShiftPointsTableAndDynoAnnotations(); });
+    $('rev-limit')?.addEventListener('input', () => { updateGearMph(); updateSpeedChart(); updateShiftPointsTableAndDynoAnnotations(); });
+    $('final-drive')?.addEventListener('input', () => { updateGearMph(); updateSpeedChart(); updateShiftPointsTableAndDynoAnnotations(); });
+    document.getElementById('gears-container')?.addEventListener('input', () => { updateGearMph(); updateSpeedChart(); updateShiftPointsTableAndDynoAnnotations(); });
+    $('load-default-drivetrain')?.addEventListener('click', () => { populateTransmissionFrom(DEFAULT_SETUP); updateGearMph(); updateSpeedChart(); updateShiftPointsTableAndDynoAnnotations(); });
+    $('save-drivetrain-btn')?.addEventListener('click', () => { const merged = { ...DEFAULT_SETUP, ...getDrivetrainFormData() }; downloadJson(merged, 'setup.json'); });
+
+    const maxHpEntry = dynoData.length ? dynoData.reduce((max, d) => d.hp > max.hp ? d : max, dynoData[0]) : { hp: 0, rpm: 0 };
+    const maxTorqueEntry = dynoData.length ? dynoData.reduce((max, d) => d.torque_lb_ft > max.torque_lb_ft ? d : max, dynoData[0]) : { torque_lb_ft: 0, rpm: 0 };
+    const highestRpm = dynoData.length ? Math.max(...dynoData.map(d => d.rpm)) : 0;
+
+    const summaryEl = $('summary');
+    summaryEl.innerHTML = `
+      <div class="summary-card">
+        <div class="value">${maxHpEntry.hp.toFixed(1)}</div>
+        <div class="label">Peak HP</div>
+        <div class="sub">@ ${maxHpEntry.rpm} RPM</div>
+      </div>
+      <div class="summary-card">
+        <div class="value">${maxTorqueEntry.torque_lb_ft.toFixed(1)}</div>
+        <div class="label">Peak Torque (lb-ft)</div>
+        <div class="sub">@ ${maxTorqueEntry.rpm} RPM</div>
+      </div>
+      <div class="summary-card">
+        <div class="value">${highestRpm}</div>
+        <div class="label">Max RPM</div>
+        <div class="sub">on dyno</div>
+      </div>
+    `;
+
+    const is250Increment = rpm => rpm % 250 === 0;
+    const data250 = dynoData.filter(d => is250Increment(d.rpm));
+    const sorted250 = [...data250].sort((a, b) => b.hp - a.hp);
+    
+    let numPoints, divisor;
+    if (highestRpm > 7000) {
+      numPoints = 7;
+      divisor = 8;
+    } else if (highestRpm >= 6000) {
+      numPoints = 5;
+      divisor = 6;
+    } else {
+      numPoints = 3;
+      divisor = 4;
+    }
+
+    const maxHpRounded = Math.round(maxHpEntry.hp);
+    const topPoints = sorted250.slice(0, numPoints + 1)
+      .filter(d => d.rpm !== maxHpEntry.rpm)
+      .slice(0, numPoints);
+
+    const topPointsRounded = topPoints.map(d => ({
+      rpm: d.rpm,
+      hp: Math.round(d.hp)
+    }));
+
+    const sum = maxHpRounded + topPointsRounded.reduce((s, d) => s + d.hp, 0);
+    const avgHp = sum / divisor;
+
+    const calcSummaryEl = $('calc-summary');
+    calcSummaryEl.innerHTML = `
+      <tr><th>Max HP</th><td>${maxHpRounded} @ ${maxHpEntry.rpm} RPM</td></tr>
+      <tr><th>Highest RPM on Dyno</th><td>${highestRpm}</td></tr>
+      <tr><th>Calculation Type</th><td>${numPoints + 1} points (max RPM ${highestRpm > 7000 ? '> 7000' : highestRpm >= 6000 ? '6000-7000' : '< 6000'})</td></tr>
+      <tr><th>NASA Avg HP</th><td style="font-size: 1.25rem; color: var(--accent);">${Math.round(avgHp)}</td></tr>
+    `;
+
+    const avgBreakdownEl = $('avg-breakdown');
+    const pointsStr = topPointsRounded.map(d => `${d.hp} @ ${d.rpm}`).join(', ');
+    const hpValues = [maxHpRounded, ...topPointsRounded.map(d => d.hp)];
+    avgBreakdownEl.innerHTML = `
+      <div><strong>Highest ${numPoints} HP data points (at 250 RPM increments):</strong></div>
+      <div style="margin: 0.5rem 0;">${pointsStr}</div>
+      <div class="avg-formula">
+        Avg HP = (${hpValues.join(' + ')}) / ${divisor} = ${sum} / ${divisor} = <strong>${Math.round(avgHp)}</strong>
+      </div>
+    `;
+
+    const highlightRpms = new Set([maxHpEntry.rpm, ...topPointsRounded.map(d => d.rpm)]);
+
+    function computeShiftPoints() {
+      const form = getDrivetrainFormData();
+      const gears = form.drivetrain.transmission.gears || [];
+      const revLimit = form.drivetrain.engine.rev_limit || highestRpm;
+      if (!dynoData.length || dynoData.length === 0) return [];
+      function interpolateHp(rpm) {
+        if (rpm <= dynoData[0].rpm) return dynoData[0].hp;
+        if (rpm >= dynoData[dynoData.length - 1].rpm) return dynoData[dynoData.length - 1].hp;
+        for (let i = 0; i < dynoData.length - 1; i++) {
+          if (rpm >= dynoData[i].rpm && rpm <= dynoData[i + 1].rpm) {
+            const t = (rpm - dynoData[i].rpm) / (dynoData[i + 1].rpm - dynoData[i].rpm);
+            return dynoData[i].hp + t * (dynoData[i + 1].hp - dynoData[i].hp);
+          }
+        }
+        return 0;
+      }
+      function findOptimalShift(currentRatio, nextRatio, maxRpm) {
+        const rpmDrop = nextRatio / currentRatio;
+        let optimalRpm = maxRpm;
+        for (let rpm = maxRpm; rpm >= dynoData[0].rpm; rpm -= 10) {
+          const droppedRpm = rpm * rpmDrop;
+          if (droppedRpm < dynoData[0].rpm) continue;
+          const hpCurrent = interpolateHp(rpm);
+          const hpNext = interpolateHp(droppedRpm);
+          if (hpNext >= hpCurrent) optimalRpm = rpm;
+          else break;
+        }
+        return optimalRpm;
+      }
+      const shiftColors = ['#e85d04', '#f48c06', '#faa307', '#ffba08', '#9ef01a'];
+      const points = [];
+      for (let i = 0; i < gears.length - 1; i++) {
+        const current = gears[i];
+        const next = gears[i + 1];
+        if (!current.ratio || !next.ratio) continue;
+        const optimalRpm = findOptimalShift(current.ratio, next.ratio, revLimit);
+        const droppedRpm = optimalRpm * (next.ratio / current.ratio);
+        points.push({
+          from: i + 1,
+          to: i + 2,
+          optimalRpm: Math.round(optimalRpm),
+          droppedRpm: Math.round(droppedRpm),
+          hpAtShift: interpolateHp(optimalRpm),
+          hpAfterShift: interpolateHp(droppedRpm),
+          vsRedline: optimalRpm < revLimit ? revLimit - optimalRpm : 0,
+          color: shiftColors[i % shiftColors.length]
+        });
+      }
+      return points;
+    }
+
+    function updateShiftPointsTableAndDynoAnnotations() {
+      const shiftPoints = computeShiftPoints();
+      const shiftTableBody = document.querySelector('#shift-table tbody');
+      if (shiftTableBody) {
+        shiftTableBody.innerHTML = '';
+        shiftPoints.forEach(sp => {
+          const tr = document.createElement('tr');
+          const vsRedlineText = sp.vsRedline > 0 ? `${sp.vsRedline} RPM early` : 'At redline';
+          tr.innerHTML = `
+            <td>${sp.from} → ${sp.to}</td>
+            <td class="shift-rpm">${sp.optimalRpm}</td>
+            <td>${sp.hpAtShift.toFixed(1)}</td>
+            <td>${sp.droppedRpm}</td>
+            <td>${sp.hpAfterShift.toFixed(1)}</td>
+            <td>${vsRedlineText}</td>
+          `;
+          shiftTableBody.appendChild(tr);
+        });
+      }
+      if (window.dynoChart && shiftPoints.length > 0) {
+        window.dynoChart.options.plugins.annotation.annotations = Object.fromEntries(shiftPoints.map((sp, i) => [
+          `shift${i}`,
+          {
+            type: 'line',
+            xMin: sp.optimalRpm,
+            xMax: sp.optimalRpm,
+            borderColor: sp.color,
+            borderWidth: 2,
+            borderDash: [6, 4],
+            label: {
+              display: true,
+              content: `${sp.from}→${sp.to}`,
+              position: 'start',
+              backgroundColor: sp.color,
+              color: '#1a1a1a',
+              font: { size: 10, weight: 'bold' },
+              padding: 3
+            }
+          }
+        ]));
+        window.dynoChart.update();
+      }
+    }
+
+    // Optimal shift points (table filled after dyno chart is created)
+    const tableBody = document.querySelector('#data-table tbody');
+    dynoData.forEach(d => {
+      const tr = document.createElement('tr');
+      const isMax = d.rpm === maxHpEntry.rpm;
+      const is250 = is250Increment(d.rpm);
+      if (isMax) tr.classList.add('max-row');
+      else if (is250) tr.classList.add('highlight');
+      tr.innerHTML = `
+        <td>${d.rpm}</td>
+        <td>${d.hp.toFixed(2)}</td>
+        <td>${d.torque_lb_ft.toFixed(2)}</td>
+      `;
+      tableBody.appendChild(tr);
+    });
+
+    const initialShiftPoints = computeShiftPoints();
+    const ctx = $('dyno-chart');
+    const dynoChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: dynoData.map(d => d.rpm),
+        datasets: [
+          {
+            label: 'Horsepower',
+            data: dynoData.map(d => d.hp),
+            borderColor: '#e85d04',
+            backgroundColor: '#e85d04',
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.1,
+            yAxisID: 'y'
+          },
+          {
+            label: 'Torque (lb-ft)',
+            data: dynoData.map(d => d.torque_lb_ft),
+            borderColor: '#38b000',
+            backgroundColor: '#38b000',
+            borderWidth: 2,
+            pointRadius: 0,
+            tension: 0.1,
+            yAxisID: 'y'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: {
+          mode: 'index',
+          intersect: false
+        },
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: { color: '#a3a3a3' }
+          },
+          tooltip: {
+            callbacks: {
+              title: (items) => `${items[0].label} RPM`,
+              label: (item) => {
+                const unit = item.datasetIndex === 0 ? ' HP' : ' lb-ft';
+                return `${item.dataset.label}: ${item.raw.toFixed(1)}${unit}`;
+              }
+            }
+          },
+          annotation: {
+            annotations: Object.fromEntries(initialShiftPoints.map((sp, i) => [
+              `shift${i}`,
+              {
+                type: 'line',
+                xMin: sp.optimalRpm,
+                xMax: sp.optimalRpm,
+                borderColor: sp.color,
+                borderWidth: 2,
+                borderDash: [6, 4],
+                label: {
+                  display: true,
+                  content: `${sp.from}→${sp.to}`,
+                  position: 'start',
+                  backgroundColor: sp.color,
+                  color: '#1a1a1a',
+                  font: { size: 10, weight: 'bold' },
+                  padding: 3
+                }
+              }
+            ]))
+          }
+        },
+        scales: {
+          x: {
+            title: { display: true, text: 'RPM', color: '#a3a3a3' },
+            ticks: { color: '#a3a3a3' },
+            grid: { color: 'rgba(163, 163, 163, 0.1)' }
+          },
+          y: {
+            title: { display: true, text: 'HP / Torque', color: '#a3a3a3' },
+            ticks: { color: '#a3a3a3' },
+            grid: { color: 'rgba(163, 163, 163, 0.1)' },
+            min: 0
+          }
+        }
+      }
+    });
+    window.dynoChart = dynoChart;
+    updateShiftPointsTableAndDynoAnnotations();
+  </script>
+</body>
+</html>

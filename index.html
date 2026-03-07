@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" href="favicon.png">
-  <title>Setup Notebook</title>
+  <title>Lotus Setup Notebook</title>
   <link rel="stylesheet" href="shared.css">
   <style>
     .tool-list {
@@ -39,24 +39,51 @@
       font-size: 0.8rem;
       color: var(--muted);
     }
+    .section-heading {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--muted);
+      margin: 2rem 0 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .section-heading:first-of-type {
+      margin-top: 0;
+    }
   </style>
 </head>
 <body>
-  <h1>Setup Notebook</h1>
+  <h1>Lotus Setup Notebook</h1>
   <div class="layout">
+    <h2 class="section-heading">Setup</h2>
     <ul class="tool-list">
       <li>
         <a href="lotus-brake-bias.html">
-          <div class="tool-name">Brake Force & Ideal Curve</div>
+          <div class="tool-name">Brake Bias</div>
           <div class="tool-desc">Calculate brake force distribution and compare against the ideal braking curve</div>
         </a>
       </li>
       <li>
-        <a href="dyno.html">
-          <div class="tool-name">Dyno Data</div>
-          <div class="tool-desc">View dyno chart, data table, and NASA Avg HP calculation</div>
+        <a href="chassis.html">
+          <div class="tool-name">Chassis</div>
+          <div class="tool-desc">Edit and save chassis, corners, tires, and related setup</div>
         </a>
       </li>
+      <li>
+        <a href="drivetrain.html">
+          <div class="tool-name">Drivetrain</div>
+          <div class="tool-desc">Dyno chart, NASA Avg HP, optimal shift points, transmission ratios and speed chart</div>
+        </a>
+      </li>
+      <li>
+        <a href="lotus-toe-curves.html">
+          <div class="tool-name">Toe vs Suspension Travel</div>
+          <div class="tool-desc">Visualize toe change through suspension travel for front and rear</div>
+        </a>
+      </li>
+    </ul>
+    <h2 class="section-heading">Utilities</h2>
+    <ul class="tool-list">
       <li>
         <a href="lotus-ebc430-abs-decoder.html">
           <div class="tool-name">Lotus ABS Code Decoder</div>
@@ -67,18 +94,6 @@
         <a href="mk60e5-z4-gt3-can-generator.html">
           <div class="tool-name">MK60E5 Z4 GT3 CAN Generator</div>
           <div class="tool-desc">Generate CAN message 0x5BA for configuring tire circumference, TCS, and ABS settings</div>
-        </a>
-      </li>
-      <li>
-        <a href="setup-editor.html">
-          <div class="tool-name">Setup Editor</div>
-          <div class="tool-desc">Load, edit, and save vehicle setup configuration files</div>
-        </a>
-      </li>
-      <li>
-        <a href="lotus-toe-curves.html">
-          <div class="tool-name">Toe vs Suspension Travel</div>
-          <div class="tool-desc">Visualize toe change through suspension travel for front and rear</div>
         </a>
       </li>
     </ul>
