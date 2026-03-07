@@ -221,14 +221,14 @@
       setupData = data;
 
       $('name').value = data.name || '';
-      $('wheelbase-mm').value = data.vehicle?.wheelbase_mm || '';
-      $('cg-height-mm').value = data.vehicle?.cg_height_mm || '';
-      $('rh-correction-front').value = data.vehicle?.ride_height_correction_front_mm ?? '';
-      $('rh-correction-rear').value = data.vehicle?.ride_height_correction_rear_mm ?? '';
-      $('motion-ratio-front').value = data.motion_ratios?.front || '';
-      $('motion-ratio-rear').value = data.motion_ratios?.rear || '';
-      $('arb-front').value = data.anti_roll_bars?.front_wheel_rate_lb_in || '';
-      $('arb-rear').value = data.anti_roll_bars?.rear_wheel_rate_lb_in || '';
+      $('wheelbase-mm').value = data.chassis?.wheelbase_mm || '';
+      $('cg-height-mm').value = data.chassis?.cg_height_mm || '';
+      $('rh-correction-front').value = data.chassis?.ride_height_correction_front_mm ?? '';
+      $('rh-correction-rear').value = data.chassis?.ride_height_correction_rear_mm ?? '';
+      $('motion-ratio-front').value = data.chassis?.motion_ratios?.front || '';
+      $('motion-ratio-rear').value = data.chassis?.motion_ratios?.rear || '';
+      $('arb-front').value = data.chassis?.anti_roll_bars?.front_wheel_rate_lb_in || '';
+      $('arb-rear').value = data.chassis?.anti_roll_bars?.rear_wheel_rate_lb_in || '';
 
       const cornerMap = {
         'corner-lf': 'left_front',
@@ -239,7 +239,7 @@
 
       Object.entries(cornerMap).forEach(([containerId, cornerKey]) => {
         createCornerFields(containerId, cornerKey);
-        const cornerData = data.corners?.[cornerKey] || {};
+        const cornerData = data.chassis?.corners?.[cornerKey] || {};
         const cornerId = toKebab(cornerKey);
         cornerFields.forEach(f => {
           if (f.key === 'caster' && !cornerKey.includes('front')) return;
@@ -319,38 +319,38 @@
 
       return {
         name: $('name').value,
-        vehicle: {
+        chassis: {
           wheelbase_mm: parseFloat($('wheelbase-mm').value) || 0,
           cg_height_mm: parseFloat($('cg-height-mm').value) || 0,
           ride_height_correction_front_mm: parseFloat($('rh-correction-front').value) || 0,
-          ride_height_correction_rear_mm: parseFloat($('rh-correction-rear').value) || 0
+          ride_height_correction_rear_mm: parseFloat($('rh-correction-rear').value) || 0,
+          motion_ratios: {
+            front: parseFloat($('motion-ratio-front').value) || 0,
+            rear: parseFloat($('motion-ratio-rear').value) || 0
+          },
+          anti_roll_bars: {
+            front_wheel_rate_lb_in: parseFloat($('arb-front').value) || 0,
+            rear_wheel_rate_lb_in: parseFloat($('arb-rear').value) || 0
+          },
+          corners
         },
-        motion_ratios: {
-          front: parseFloat($('motion-ratio-front').value) || 0,
-          rear: parseFloat($('motion-ratio-rear').value) || 0
-        },
-        anti_roll_bars: {
-          front_wheel_rate_lb_in: parseFloat($('arb-front').value) || 0,
-          rear_wheel_rate_lb_in: parseFloat($('arb-rear').value) || 0
-        },
-        corners,
         tires: {
           front: {
             size: $('tire-front-size').value,
             revolutions_per_mile: parseFloat($('tire-front-rpm').value) || 0,
             wheel_and_tire_lb: parseFloat($('tire-front-wheel-lb').value) || 0,
             unsprung_weight_lb: parseFloat($('unsprung-front-lb').value) || 0,
-            notes: $('tire-front-notes').value
+            notes: $('tire-front-notes').value,
+            stock_size: setupData?.tires?.front?.stock_size || ''
           },
           rear: {
             size: $('tire-rear-size').value,
             revolutions_per_mile: parseFloat($('tire-rear-rpm').value) || 0,
+            stock_size: setupData?.tires?.rear?.stock_size || '',
             wheel_and_tire_lb: parseFloat($('tire-rear-wheel-lb').value) || 0,
             unsprung_weight_lb: parseFloat($('unsprung-rear-lb').value) || 0,
             notes: $('tire-rear-notes').value
-          },
-          stock_front: setupData?.tires?.stock_front || '',
-          stock_rear: setupData?.tires?.stock_rear || ''
+          }
         },
         drivetrain: {
           engine: {
@@ -370,17 +370,17 @@
       const data = collectFormData();
       const calc = $('calculated');
 
-      const mrF = data.motion_ratios.front;
-      const mrR = data.motion_ratios.rear;
-      const springF = data.corners.left_front.spring_rate_lb;
-      const springR = data.corners.left_rear.spring_rate_lb;
+      const mrF = data.chassis.motion_ratios.front;
+      const mrR = data.chassis.motion_ratios.rear;
+      const springF = data.chassis.corners.left_front.spring_rate_lb;
+      const springR = data.chassis.corners.left_rear.spring_rate_lb;
       const wheelRateF = springF * mrF * mrF;
       const wheelRateR = springR * mrR * mrR;
 
-      const lfWeight = data.corners.left_front.corner_weight_with_driver_lb;
-      const rfWeight = data.corners.right_front.corner_weight_with_driver_lb;
-      const lrWeight = data.corners.left_rear.corner_weight_with_driver_lb;
-      const rrWeight = data.corners.right_rear.corner_weight_with_driver_lb;
+      const lfWeight = data.chassis.corners.left_front.corner_weight_with_driver_lb;
+      const rfWeight = data.chassis.corners.right_front.corner_weight_with_driver_lb;
+      const lrWeight = data.chassis.corners.left_rear.corner_weight_with_driver_lb;
+      const rrWeight = data.chassis.corners.right_rear.corner_weight_with_driver_lb;
       const frontWeight = lfWeight + rfWeight;
       const rearWeight = lrWeight + rrWeight;
       const leftWeight = lfWeight + lrWeight;
@@ -415,24 +415,24 @@
       const tireHeightR = getTireDiameter(rearTireData);
 
       // Stock tire diameters
-      const stockFrontDia = parseTireDiameter(data.tires?.stock_front);
-      const stockRearDia = parseTireDiameter(data.tires?.stock_rear);
+      const stockFrontDia = parseTireDiameter(data.tires?.front?.stock_size);
+      const stockRearDia = parseTireDiameter(data.tires?.rear?.stock_size);
 
       // Ride height change from tire size difference (radius change = diameter change / 2)
       const rhChangeF = (tireHeightF && stockFrontDia) ? (tireHeightF - stockFrontDia) / 2 : null;
       const rhChangeR = (tireHeightR && stockRearDia) ? (tireHeightR - stockRearDia) / 2 : null;
 
       // Geometry corrections
-      const geoCorrectF = data.vehicle?.ride_height_correction_front_mm || 0;
-      const geoCorrectR = data.vehicle?.ride_height_correction_rear_mm || 0;
+      const geoCorrectF = data.chassis?.ride_height_correction_front_mm || 0;
+      const geoCorrectR = data.chassis?.ride_height_correction_rear_mm || 0;
 
       // Geometric ride height vs stock (tire change - geometry correction)
       const geoRhF = rhChangeF !== null ? rhChangeF - geoCorrectF : null;
       const geoRhR = rhChangeR !== null ? rhChangeR - geoCorrectR : null;
 
       // Chassis rake (rear - front, positive = rear higher = nose down)
-      const avgRhF = ((data.corners.left_front.ride_height_mm || 0) + (data.corners.right_front.ride_height_mm || 0)) / 2;
-      const avgRhR = ((data.corners.left_rear.ride_height_mm || 0) + (data.corners.right_rear.ride_height_mm || 0)) / 2;
+      const avgRhF = ((data.chassis.corners.left_front.ride_height_mm || 0) + (data.chassis.corners.right_front.ride_height_mm || 0)) / 2;
+      const avgRhR = ((data.chassis.corners.left_rear.ride_height_mm || 0) + (data.chassis.corners.right_rear.ride_height_mm || 0)) / 2;
       const chassisRake = avgRhR - avgRhF;
 
       const revLimit = data.drivetrain?.engine?.rev_limit || 0;

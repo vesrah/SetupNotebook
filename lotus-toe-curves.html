@@ -101,8 +101,8 @@
     });
 
     function loadSetup(setup) {
-      const curves = setup.toe_curves || DEFAULT_SETUP.toe_curves;
-      const corners = setup.corners || DEFAULT_SETUP.corners;
+      const curves = setup.chassis?.toe_curves || DEFAULT_SETUP.chassis.toe_curves;
+      const corners = setup.chassis?.corners || DEFAULT_SETUP.chassis.corners;
       frontCurve = {
         title: `Elise Front Toe Curve - ${curves.front.notes}`,
         data: curves.front.data.map(d => ({ x: d.compression_in, y: d.toe_in }))

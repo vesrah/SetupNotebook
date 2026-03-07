@@ -542,7 +542,7 @@
     }
 
     function loadSetup(setup) {
-      const corners = setup.corners || {};
+      const corners = setup.chassis?.corners || {};
       const lf = corners.left_front?.corner_weight_with_driver_lb || 0;
       const rf = corners.right_front?.corner_weight_with_driver_lb || 0;
       const lr = corners.left_rear?.corner_weight_with_driver_lb || 0;
@@ -555,11 +555,11 @@
         $('beta').value = (frontWeight / totalWeight).toFixed(3);
       }
 
-      if (setup.vehicle?.wheelbase_mm) {
-        $('l-mm').value = setup.vehicle.wheelbase_mm;
+      if (setup.chassis?.wheelbase_mm) {
+        $('l-mm').value = setup.chassis.wheelbase_mm;
       }
-      if (setup.vehicle?.cg_height_mm) {
-        $('h-mm').value = setup.vehicle.cg_height_mm;
+      if (setup.chassis?.cg_height_mm) {
+        $('h-mm').value = setup.chassis.cg_height_mm;
       }
 
       if (setup.tires?.front?.size) {
