@@ -31,6 +31,9 @@ const G = 9.81;
 /** Gravitational acceleration in in/s² (for wheel frequency calculations using lb/in spring rates) */
 const G_IN = 386.088;
 
+/** Penske coilover 10 TPI = 2.54mm per turn at spring perch */
+const MM_PER_TURN_AT_SPRING = 2.54;
+
 // ============================================================================
 // DOM Helpers
 // ============================================================================

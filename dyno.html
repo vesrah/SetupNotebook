@@ -215,7 +215,7 @@
   <script>
     'use strict';
 
-    const dynoData = DEFAULT_SETUP.engine?.dyno?.data || [];
+    const dynoData = DEFAULT_SETUP.drivetrain?.engine?.dyno?.data || [];
     if (dynoData.length === 0) {
       document.querySelector('.layout').innerHTML = '<div class="panel"><p>No dyno data available in setup.js</p></div>';
     }
@@ -294,8 +294,8 @@
     const highlightRpms = new Set([maxHpEntry.rpm, ...topPointsRounded.map(d => d.rpm)]);
 
     // Optimal shift point calculations
-    const gears = DEFAULT_SETUP.transmission?.gears || [];
-    const revLimit = DEFAULT_SETUP.engine?.rev_limit || highestRpm;
+    const gears = DEFAULT_SETUP.drivetrain?.transmission?.gears || [];
+    const revLimit = DEFAULT_SETUP.drivetrain?.engine?.rev_limit || highestRpm;
     
     function interpolateHp(rpm) {
       if (rpm < dynoData[0].rpm) return dynoData[0].hp;

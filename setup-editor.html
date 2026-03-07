@@ -65,10 +65,6 @@
               <input type="number" id="motion-ratio-rear" step="0.01">
             </div>
             <div class="field">
-              <label for="mm-per-turn">mm/turn at Spring</label>
-              <input type="number" id="mm-per-turn" step="0.01">
-            </div>
-            <div class="field">
               <label for="unsprung-front-lb">Suspension Unsprung F (lb)</label>
               <input type="number" id="unsprung-front-lb" step="0.1">
             </div>
@@ -263,14 +259,13 @@
       $('unsprung-front-lb').value = data.tires?.front?.unsprung_weight_lb || '';
       $('unsprung-rear-lb').value = data.tires?.rear?.unsprung_weight_lb || '';
 
-      $('shift-rpm').value = data.engine?.shift_rpm || '';
-      $('rev-limit').value = data.engine?.rev_limit || '';
-      $('final-drive').value = data.transmission?.final_drive || '';
-      $('mm-per-turn').value = data.spring_adjustment?.mm_per_turn_at_spring || '';
+      $('shift-rpm').value = data.drivetrain?.engine?.shift_rpm || '';
+      $('rev-limit').value = data.drivetrain?.engine?.rev_limit || '';
+      $('final-drive').value = data.drivetrain?.transmission?.final_drive || '';
 
       const gearsContainer = $('gears-container');
       gearsContainer.innerHTML = '';
-      (data.transmission?.gears || []).forEach((g, i) => {
+      (data.drivetrain?.transmission?.gears || []).forEach((g, i) => {
         const row = document.createElement('div');
         row.className = 'data-row';
         row.innerHTML = `
@@ -357,16 +352,15 @@
           stock_front: setupData?.tires?.stock_front || '',
           stock_rear: setupData?.tires?.stock_rear || ''
         },
-        engine: {
-          shift_rpm: parseFloat($('shift-rpm').value) || 0,
-          rev_limit: parseFloat($('rev-limit').value) || 0
-        },
-        transmission: {
-          final_drive: parseFloat($('final-drive').value) || 0,
-          gears
-        },
-        spring_adjustment: {
-          mm_per_turn_at_spring: parseFloat($('mm-per-turn').value) || 0
+        drivetrain: {
+          engine: {
+            shift_rpm: parseFloat($('shift-rpm').value) || 0,
+            rev_limit: parseFloat($('rev-limit').value) || 0
+          },
+          transmission: {
+            final_drive: parseFloat($('final-drive').value) || 0,
+            gears
+          }
         }
       };
     }
@@ -405,7 +399,7 @@
       const freqR = wheelRateR > 0 && sprungLR > 0 ? Math.sqrt(wheelRateR * G_IN / sprungLR) / (2 * Math.PI) : 0;
       const freqRatio = freqR > 0 ? freqF / freqR : 0;
 
-      const mmPerTurn = data.spring_adjustment.mm_per_turn_at_spring;
+      const mmPerTurn = MM_PER_TURN_AT_SPRING;
       const turnF = mrF > 0 ? mmPerTurn / mrF : 0;
       const turnR = mrR > 0 ? mmPerTurn / mrR : 0;
 
@@ -441,9 +435,9 @@
       const avgRhR = ((data.corners.left_rear.ride_height_mm || 0) + (data.corners.right_rear.ride_height_mm || 0)) / 2;
       const chassisRake = avgRhR - avgRhF;
 
-      const revLimit = data.engine?.rev_limit || 0;
-      const finalDrive = data.transmission?.final_drive || 0;
-      const gears = data.transmission?.gears || [];
+      const revLimit = data.drivetrain?.engine?.rev_limit || 0;
+      const finalDrive = data.drivetrain?.transmission?.final_drive || 0;
+      const gears = data.drivetrain?.transmission?.gears || [];
       
       let rearRevPerMile = rearTireData.revolutions_per_mile;
       if (!rearRevPerMile && tireHeightR) {
@@ -501,10 +495,10 @@
       const ctx = $('speed-chart');
       if (!ctx) return;
 
-      const revLimit = data.engine?.rev_limit || 0;
-      const shiftRpm = data.engine?.shift_rpm || revLimit;
-      const finalDrive = data.transmission?.final_drive || 0;
-      const gears = data.transmission?.gears || [];
+      const revLimit = data.drivetrain?.engine?.rev_limit || 0;
+      const shiftRpm = data.drivetrain?.engine?.shift_rpm || revLimit;
+      const finalDrive = data.drivetrain?.transmission?.final_drive || 0;
+      const gears = data.drivetrain?.transmission?.gears || [];
 
       if (!revLimit || !finalDrive || !rearRevPerMile || gears.length === 0) {
         if (speedChart) {

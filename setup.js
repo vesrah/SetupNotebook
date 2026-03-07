@@ -73,14 +73,15 @@ const DEFAULT_SETUP = {
     "stock_front": "195/50/16",
     "stock_rear": "225/45/17"
   },
-  "engine": {
-    "shift_rpm": 8100,
-    "rev_limit": 8100,
-    "dyno": {
-      "date": "2024-10-31",
-      "source": "Dynojet",
-      "notes": "SAE corrected, 74.29°F, 29.23 in-Hg, 6% humidity",
-      "data": [
+  "drivetrain": {
+    "engine": {
+      "shift_rpm": 8100,
+      "rev_limit": 8100,
+      "dyno": {
+        "date": "2024-10-31",
+        "source": "Dynojet",
+        "notes": "SAE corrected, 74.29°F, 29.23 in-Hg, 6% humidity",
+        "data": [
         { "rpm": 2150, "hp": 69.89, "torque_lb_ft": 170.74 },
         { "rpm": 2200, "hp": 70.91, "torque_lb_ft": 169.28 },
         { "rpm": 2250, "hp": 72.24, "torque_lb_ft": 168.63 },
@@ -200,23 +201,21 @@ const DEFAULT_SETUP = {
         { "rpm": 7950, "hp": 243.56, "torque_lb_ft": 160.91 },
         { "rpm": 8000, "hp": 243.45, "torque_lb_ft": 159.83 },
         { "rpm": 8050, "hp": 242.48, "torque_lb_ft": 158.20 },
-        { "rpm": 8100, "hp": 238.13, "torque_lb_ft": 154.41 }
+          { "rpm": 8100, "hp": 238.13, "torque_lb_ft": 154.41 }
+        ]
+      }
+    },
+    "transmission": {
+      "final_drive": 4.400,
+      "gears": [
+        { "gear": 1, "ratio": 3.266, "notes": "K20Z3 1" },
+        { "gear": 2, "ratio": 2.045, "notes": "K20Z3 2" },
+        { "gear": 3, "ratio": 1.517, "notes": "K20Z3 3" },
+        { "gear": 4, "ratio": 1.212, "notes": "DC5R 4" },
+        { "gear": 5, "ratio": 0.972, "notes": "DC5R 5" },
+        { "gear": 6, "ratio": 0.825, "notes": "TSX 5" }
       ]
     }
-  },
-  "transmission": {
-    "final_drive": 4.400,
-    "gears": [
-      { "gear": 1, "ratio": 3.266, "notes": "K20Z3 1" },
-      { "gear": 2, "ratio": 2.045, "notes": "K20Z3 2" },
-      { "gear": 3, "ratio": 1.517, "notes": "K20Z3 3" },
-      { "gear": 4, "ratio": 1.212, "notes": "DC5R 4" },
-      { "gear": 5, "ratio": 0.972, "notes": "DC5R 5" },
-      { "gear": 6, "ratio": 0.825, "notes": "TSX 5" }
-    ]
-  },
-  "spring_adjustment": {
-    "mm_per_turn_at_spring": 2.54
   },
   "brakes": {
     "input": {
