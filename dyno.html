@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dyno Data</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
   <script src="utils.js"></script>
   <script src="setup.js"></script>
   <link rel="stylesheet" href="shared.css">
@@ -105,6 +106,47 @@
       font-size: 0.8rem;
       color: var(--muted);
     }
+    .shift-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    .shift-table th,
+    .shift-table td {
+      padding: 0.5rem 0.75rem;
+      text-align: right;
+      border-bottom: 1px solid var(--border);
+    }
+    .shift-table th {
+      background: var(--surface);
+      font-weight: 600;
+    }
+    .shift-table td:first-child,
+    .shift-table th:first-child {
+      text-align: left;
+    }
+    .shift-table .shift-rpm {
+      color: var(--accent);
+      font-weight: 700;
+    }
+    .shift-legend {
+      display: flex;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      margin-top: 0.75rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .shift-legend span {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .shift-legend .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
   </style>
 </head>
 <body>
@@ -124,6 +166,25 @@
       <div class="chart-wrap" style="height: 400px;">
         <canvas id="dyno-chart"></canvas>
       </div>
+      <div class="shift-legend" id="shift-legend"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Optimal Shift Points</h2>
+      <p class="hint">Shift point is where HP in the next gear (at dropped RPM) equals or exceeds current gear HP. Shift earlier than redline when beneficial.</p>
+      <table class="shift-table" id="shift-table">
+        <thead>
+          <tr>
+            <th>Shift</th>
+            <th>Optimal RPM</th>
+            <th>HP at Shift</th>
+            <th>Drop to RPM</th>
+            <th>HP After Shift</th>
+            <th>vs Redline</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
     </div>
 
     <div class="panel">
@@ -154,7 +215,7 @@
   <script>
     'use strict';
 
-    const dynoData = DEFAULT_SETUP.dyno?.data || [];
+    const dynoData = DEFAULT_SETUP.engine?.dyno?.data || [];
     if (dynoData.length === 0) {
       document.querySelector('.layout').innerHTML = '<div class="panel"><p>No dyno data available in setup.js</p></div>';
     }
@@ -231,6 +292,90 @@
     `;
 
     const highlightRpms = new Set([maxHpEntry.rpm, ...topPointsRounded.map(d => d.rpm)]);
+
+    // Optimal shift point calculations
+    const gears = DEFAULT_SETUP.transmission?.gears || [];
+    const revLimit = DEFAULT_SETUP.engine?.rev_limit || highestRpm;
+    
+    function interpolateHp(rpm) {
+      if (rpm < dynoData[0].rpm) return dynoData[0].hp;
+      if (rpm > dynoData[dynoData.length - 1].rpm) return dynoData[dynoData.length - 1].hp;
+      for (let i = 0; i < dynoData.length - 1; i++) {
+        if (rpm >= dynoData[i].rpm && rpm <= dynoData[i + 1].rpm) {
+          const t = (rpm - dynoData[i].rpm) / (dynoData[i + 1].rpm - dynoData[i].rpm);
+          return dynoData[i].hp + t * (dynoData[i + 1].hp - dynoData[i].hp);
+        }
+      }
+      return 0;
+    }
+
+    function findOptimalShift(currentRatio, nextRatio, maxRpm) {
+      const rpmDrop = nextRatio / currentRatio;
+      let optimalRpm = maxRpm;
+      for (let rpm = maxRpm; rpm >= dynoData[0].rpm; rpm -= 10) {
+        const droppedRpm = rpm * rpmDrop;
+        if (droppedRpm < dynoData[0].rpm) continue;
+        const hpCurrent = interpolateHp(rpm);
+        const hpNext = interpolateHp(droppedRpm);
+        if (hpNext >= hpCurrent) {
+          optimalRpm = rpm;
+        } else {
+          break;
+        }
+      }
+      return optimalRpm;
+    }
+
+    const shiftPoints = [];
+    const shiftColors = ['#e85d04', '#f48c06', '#faa307', '#ffba08', '#9ef01a'];
+    
+    for (let i = 0; i < gears.length - 1; i++) {
+      const current = gears[i];
+      const next = gears[i + 1];
+      if (!current.ratio || !next.ratio) continue;
+      
+      const optimalRpm = findOptimalShift(current.ratio, next.ratio, revLimit);
+      const droppedRpm = optimalRpm * (next.ratio / current.ratio);
+      const hpAtShift = interpolateHp(optimalRpm);
+      const hpAfterShift = interpolateHp(droppedRpm);
+      const redlineDropRpm = revLimit * (next.ratio / current.ratio);
+      const hpAtRedline = interpolateHp(revLimit);
+      const hpAfterRedline = interpolateHp(redlineDropRpm);
+      
+      shiftPoints.push({
+        from: i + 1,
+        to: i + 2,
+        optimalRpm: Math.round(optimalRpm),
+        droppedRpm: Math.round(droppedRpm),
+        hpAtShift,
+        hpAfterShift,
+        vsRedline: optimalRpm < revLimit ? revLimit - optimalRpm : 0,
+        color: shiftColors[i % shiftColors.length]
+      });
+    }
+
+    const shiftTableBody = document.querySelector('#shift-table tbody');
+    shiftPoints.forEach(sp => {
+      const tr = document.createElement('tr');
+      const vsRedlineText = sp.vsRedline > 0 
+        ? `${sp.vsRedline} RPM early` 
+        : 'At redline';
+      tr.innerHTML = `
+        <td>${sp.from} → ${sp.to}</td>
+        <td class="shift-rpm">${sp.optimalRpm}</td>
+        <td>${sp.hpAtShift.toFixed(1)}</td>
+        <td>${sp.droppedRpm}</td>
+        <td>${sp.hpAfterShift.toFixed(1)}</td>
+        <td>${vsRedlineText}</td>
+      `;
+      shiftTableBody.appendChild(tr);
+    });
+
+    const shiftLegendEl = $('shift-legend');
+    shiftLegendEl.innerHTML = shiftPoints.map(sp => 
+      `<span><span class="dot" style="background: ${sp.color};"></span>${sp.from}→${sp.to}: ${sp.optimalRpm} RPM</span>`
+    ).join('');
+
     const tableBody = document.querySelector('#data-table tbody');
     dynoData.forEach(d => {
       const tr = document.createElement('tr');
@@ -294,6 +439,28 @@
                 return `${item.dataset.label}: ${item.raw.toFixed(1)}${unit}`;
               }
             }
+          },
+          annotation: {
+            annotations: Object.fromEntries(shiftPoints.map((sp, i) => [
+              `shift${i}`,
+              {
+                type: 'line',
+                xMin: sp.optimalRpm,
+                xMax: sp.optimalRpm,
+                borderColor: sp.color,
+                borderWidth: 2,
+                borderDash: [6, 4],
+                label: {
+                  display: true,
+                  content: `${sp.from}→${sp.to}`,
+                  position: 'start',
+                  backgroundColor: sp.color,
+                  color: '#1a1a1a',
+                  font: { size: 10, weight: 'bold' },
+                  padding: 3
+                }
+              }
+            ]))
           }
         },
         scales: {

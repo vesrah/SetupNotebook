@@ -263,8 +263,8 @@
       $('unsprung-front-lb').value = data.tires?.front?.unsprung_weight_lb || '';
       $('unsprung-rear-lb').value = data.tires?.rear?.unsprung_weight_lb || '';
 
-      $('shift-rpm').value = data.transmission?.shift_rpm || '';
-      $('rev-limit').value = data.transmission?.rev_limit || '';
+      $('shift-rpm').value = data.engine?.shift_rpm || '';
+      $('rev-limit').value = data.engine?.rev_limit || '';
       $('final-drive').value = data.transmission?.final_drive || '';
       $('mm-per-turn').value = data.spring_adjustment?.mm_per_turn_at_spring || '';
 
@@ -357,9 +357,11 @@
           stock_front: setupData?.tires?.stock_front || '',
           stock_rear: setupData?.tires?.stock_rear || ''
         },
-        transmission: {
+        engine: {
           shift_rpm: parseFloat($('shift-rpm').value) || 0,
-          rev_limit: parseFloat($('rev-limit').value) || 0,
+          rev_limit: parseFloat($('rev-limit').value) || 0
+        },
+        transmission: {
           final_drive: parseFloat($('final-drive').value) || 0,
           gears
         },
@@ -439,7 +441,7 @@
       const avgRhR = ((data.corners.left_rear.ride_height_mm || 0) + (data.corners.right_rear.ride_height_mm || 0)) / 2;
       const chassisRake = avgRhR - avgRhF;
 
-      const revLimit = data.transmission?.rev_limit || 0;
+      const revLimit = data.engine?.rev_limit || 0;
       const finalDrive = data.transmission?.final_drive || 0;
       const gears = data.transmission?.gears || [];
       
@@ -499,8 +501,8 @@
       const ctx = $('speed-chart');
       if (!ctx) return;
 
-      const revLimit = data.transmission?.rev_limit || 0;
-      const shiftRpm = data.transmission?.shift_rpm || revLimit;
+      const revLimit = data.engine?.rev_limit || 0;
+      const shiftRpm = data.engine?.shift_rpm || revLimit;
       const finalDrive = data.transmission?.final_drive || 0;
       const gears = data.transmission?.gears || [];
 
