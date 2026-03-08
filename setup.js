@@ -38,8 +38,8 @@ const DEFAULT_SETUP = {
         "camber_deg": -3.5,
         "caster": 4.5,
         "corner_weight_with_driver_lb": 414,
-        "notes": "Caster is estimated, based on JDawson data",
-        "ride_height_mm": 107,
+        "notes": "Caster is estimated, based on JDawson data. Ride height measured without driver",
+        "ride_height_mm": 108,
         "spring_length_in": 6,
         "spring_rate_lb": 600,
         "toe_in": 0
@@ -47,7 +47,8 @@ const DEFAULT_SETUP = {
       "left_rear": {
         "camber_deg": -3.3,
         "corner_weight_with_driver_lb": 597,
-        "ride_height_mm": 116,
+        "notes": "Ride height measured without driver",
+        "ride_height_mm": 118,
         "spring_length_in": 7,
         "spring_rate_lb": 800,
         "toe_in": 0.0625
@@ -56,8 +57,8 @@ const DEFAULT_SETUP = {
         "camber_deg": -3.5,
         "caster": 4.5,
         "corner_weight_with_driver_lb": 358,
-        "notes": "Caster is estimated, based on JDawson data",
-        "ride_height_mm": 107,
+        "notes": "Caster is estimated, based on JDawson data. Ride height measured without driver",
+        "ride_height_mm": 108,
         "spring_length_in": 6,
         "spring_rate_lb": 600,
         "toe_in": 0
@@ -65,10 +66,10 @@ const DEFAULT_SETUP = {
       "right_rear": {
         "camber_deg": -3.3,
         "corner_weight_with_driver_lb": 578,
-        "ride_height_mm": 115,
+        "notes": "Ride height measured without driver",
+        "ride_height_mm": 117,
         "spring_length_in": 7,
         "spring_rate_lb": 800,
-        "toe_in": 0.0625
       }
     },
     "motion_ratios": {
@@ -296,5 +297,5 @@ const DEFAULT_SETUP = {
       "wheel_and_tire_lb": 39
     }
   },
-  "updated_at": "2026-03-06"
+  "updated_at": "2026-03-08"
 };
