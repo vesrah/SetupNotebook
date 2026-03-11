@@ -247,6 +247,7 @@ button.secondary {
   height: 560px;
   margin-top: 0.5rem;
 }
+.chart-wrap.chart-compact { height: 360px; }
 
 .chart-wrap canvas { display: block; }
 
@@ -265,6 +266,36 @@ button.secondary {
 }
 
 .summary strong { color: var(--text); }
+
+/* Summary cards grid (stats / key values) */
+.summary-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.summary-cards .card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1rem;
+}
+.summary-cards .card .value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+.summary-cards .card .label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.summary-cards .card .sub {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 0.25rem;
+}
 
 table {
   width: 100%;

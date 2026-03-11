@@ -14,6 +14,10 @@
     .code-cell { font-weight: 600; color: var(--accent); white-space: nowrap; }
     .num-cell { color: var(--muted); width: 2rem; }
     .serial-log { font-size: 0.8rem; margin-top: 0.25rem; }
+    #serial-controls button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
     .wiring-table { font-size: 0.8rem; }
     .wiring-table td { padding: 0.4rem 0.75rem; }
     .wiring-table .pin-num { font-weight: 600; color: var(--accent); white-space: nowrap; width: 3rem; }
@@ -31,7 +35,8 @@
   <div class="layout">
     <div class="panel">
       <h2>Serial (ELM327 + ABS)</h2>
-      <p class="hint">Connect an ELM327 adapter (USB or Bluetooth serial) with PIN 7→12 for ABS. Use Chrome or Edge on HTTPS or localhost. Baud: 38400.</p>
+      <p class="hint">Connect an ELM327 adapter (USB or Bluetooth serial) with PIN 7 => 12 for ABS. Use Chrome or Edge on HTTPS or localhost.</p>
+      <p class="hint">For diagnostics, it is usually helpful to clear DTCs, then read again to see which codes return.</p>
       <div id="serial-unsupported" class="error" style="display: none;">Serial not available in this browser. Use Chrome or Edge and ensure the page is served over HTTPS or localhost.</div>
       <div id="serial-controls">
         <div class="button-row">
@@ -41,9 +46,9 @@
           <button type="button" id="serial-read-dtc" class="secondary" disabled>Read DTC</button>
           <button type="button" id="serial-ident" class="secondary" disabled>Identify</button>
           <button type="button" id="serial-clear-dtc" class="secondary" disabled>Clear DTC</button>
+          <button type="button" id="serial-check-elm" class="secondary" disabled>Check ELM</button>
         </div>
         <p class="hint" id="serial-status">Disconnected.</p>
-        <p class="hint">For diagnostics, it is usually helpful to clear DTCs, then read again to see which codes return.</p>
         <label for="serial-log" class="output-label">Serial log</label>
         <textarea id="serial-log" readonly rows="6" class="serial-log"></textarea>
       </div>
@@ -51,7 +56,7 @@
     <div class="panel">
       <h2>Diagnostic Trouble Code Data</h2>
       <textarea id="dtc-data" placeholder="Paste hex bytes from OBD scan tool (e.g. 58 09 40 35 A4...)"></textarea>
-      <p class="hint">Paste the raw hex response from reading DTCs via OBD-II / KWP2000. Spaces optional.</p>
+      <p class="hint">Paste the raw hex response from reading DTCs. Spaces optional.</p>
       <p class="error" id="error"></p>
       <div class="button-row">
         <button type="button" id="analyze-btn">Analyze</button>
@@ -421,6 +426,7 @@
     const serialReadDtcBtn = $('serial-read-dtc');
     const serialIdentBtn = $('serial-ident');
     const serialClearBtn = $('serial-clear-dtc');
+    const serialCheckElmBtn = $('serial-check-elm');
     const serialStatus = $('serial-status');
     const serialLog = $('serial-log');
 
@@ -432,18 +438,24 @@
       serialReadDtcBtn.disabled = true;
       serialIdentBtn.disabled = true;
       serialClearBtn.disabled = true;
+      serialCheckElmBtn.disabled = true;
     }
 
     let serialPort = null;
-    let serialWriter = null;
-    let serialDecoder = null;
-    let serialReadableClosed = null;
-    let serialWritableClosed = null;
+    let serialReader = null;
+    let inputBuffer = '';
+
+    function debugLog(...args) {
+      if (typeof console !== 'undefined' && console.log) {
+        console.log('[EBC430 ABS]', ...args);
+      }
+    }
 
     function appendSerialLog(text) {
       const line = serialLog.value ? serialLog.value + '\n' + text : text;
       serialLog.value = line.slice(-8000);
       serialLog.scrollTop = serialLog.scrollHeight;
+      debugLog(text);
     }
 
     function setSerialConnected(connected) {
@@ -453,103 +465,135 @@
       serialReadDtcBtn.disabled = !connected;
       serialIdentBtn.disabled = !connected;
       serialClearBtn.disabled = !connected;
+      serialCheckElmBtn.disabled = !connected;
       serialStatus.textContent = connected ? 'Connected.' : 'Disconnected.';
     }
 
     async function sendLine(line) {
-      if (!serialWriter) return;
-      appendSerialLog('> ' + line);
-      await serialWriter.write(line + '\r');
+      if (!serialPort || !serialPort.writable) return;
+      const writer = serialPort.writable.getWriter();
+      try {
+        appendSerialLog('> ' + line);
+        await writer.write(new TextEncoder().encode(line + '\r'));
+      } finally {
+        writer.releaseLock();
+      }
+    }
+
+    async function readLoop() {
+      while (serialPort && serialPort.readable) {
+        serialReader = serialPort.readable.getReader();
+        try {
+          while (true) {
+            const { value, done } = await serialReader.read();
+            if (done) break;
+            if (value) {
+              const text = typeof value === 'string' ? value : new TextDecoder().decode(value);
+              inputBuffer += text;
+              debugLog('Raw In:', text);
+            }
+          }
+        } catch (e) {
+          debugLog('Read error:', e);
+        } finally {
+          serialReader.releaseLock();
+          serialReader = null;
+        }
+        break;
+      }
     }
 
     async function readLinesWithTimeout(ms) {
-      if (!serialDecoder || !serialDecoder.readable) return [];
-      const lines = [];
-      let buffer = '';
       const timeout = Date.now() + ms;
-      const reader = serialDecoder.readable.getReader();
-      try {
-        while (Date.now() < timeout) {
-          let result;
-          try {
-            result = await Promise.race([
-              reader.read(),
-              new Promise((_, rej) => setTimeout(() => rej({ timeout: true }), 200))
-            ]);
-          } catch (e) {
-            if (e.timeout) break;
-            throw e;
-          }
-          const { value, done } = result;
-          if (value) {
-            buffer += typeof value === 'string' ? value : new TextDecoder().decode(value);
-            const parts = buffer.split(/\r?\n/);
-            buffer = parts.pop() || '';
-            parts.forEach(p => {
-              const t = p.trim();
-              if (t) {
-                lines.push(t);
-                appendSerialLog('< ' + t);
-              }
-            });
-          }
-          if (done) break;
-        }
-      } catch (e) {
-        appendSerialLog('(read: ' + (e.message || e) + ')');
-      } finally {
-        reader.releaseLock();
+      while (Date.now() < timeout) {
+        if (inputBuffer.includes('\r') || inputBuffer.includes('\n') || inputBuffer.includes('>')) break;
+        await new Promise(r => setTimeout(r, 50));
       }
+
+      // Split on any CR/LF sequence and trim; drop empty lines and lone prompts
+      const rawLines = inputBuffer.split(/[\r\n]+/);
+      inputBuffer = '';
+
+      const lines = rawLines
+        .map(l => l.trim())
+        .filter(l => l && l !== '>');
+
+      lines.forEach(l => appendSerialLog('< ' + l));
       return lines;
     }
 
     async function connectSerial() {
       try {
+        debugLog('Requesting serial port for ELM327…');
         serialPort = await navigator.serial.requestPort();
         await serialPort.open({ baudRate: 38400 });
-        const encoder = new TextEncoderStream();
-        serialWritableClosed = encoder.readable.pipeTo(serialPort.writable);
-        serialWriter = encoder.writable.getWriter();
-        serialDecoder = new TextDecoderStream();
-        serialReadableClosed = serialPort.readable.pipeTo(serialDecoder.writable);
+        debugLog('Serial port opened at 38400 baud.', serialPort.getInfo && serialPort.getInfo());
+        inputBuffer = '';
+        if (serialPort.setSignals) {
+          await serialPort.setSignals({ dataTerminalReady: true, requestToSend: true });
+          debugLog('Serial control signals set: DTR=true, RTS=true');
+        }
+        readLoop();
+        await new Promise(r => setTimeout(r, 100));
         setSerialConnected(true);
         appendSerialLog('Connected at 38400 baud.');
         serialStatus.textContent = 'Initializing ABS...';
-        await initAbs();
+        const elmOk = await initAbs();
+        if (!elmOk) {
+          serialStatus.textContent = 'No response from ELM adapter. Check power/wiring.';
+          appendSerialLog('No response from ELM during init.');
+          debugLog('InitAbs: no response from adapter.');
+          return;
+        }
         serialStatus.textContent = 'Connected. Reading identification...';
         await identifyAbs();
       } catch (e) {
         appendSerialLog('Connect failed: ' + (e.message || e));
+        debugLog('Connect failed', e);
       }
     }
 
     async function disconnectSerial() {
       if (!serialPort) return;
       try {
-        if (serialWriter) {
-          await serialWriter.close();
-          serialWriter = null;
-        }
-        if (serialWritableClosed) await serialWritableClosed;
-        if (serialReadableClosed) await serialReadableClosed;
+        debugLog('Disconnecting serial…');
         await serialPort.close();
       } catch (e) {
         appendSerialLog('Disconnect: ' + (e.message || e));
+        debugLog('Disconnect error', e);
       }
       serialPort = null;
-      serialDecoder = null;
+      inputBuffer = '';
       setSerialConnected(false);
       appendSerialLog('Disconnected.');
     }
 
     async function initAbs() {
+      if (!serialPort || !serialPort.writable) {
+        appendSerialLog('Init requested but serial is not connected.');
+        serialStatus.textContent = 'Not connected.';
+        return false;
+      }
+      debugLog('Starting initAbs sequence…');
       const cmds = ['ATZ', 'AT L1', 'AT SH 812BF1', 'AT WM 812BF13E', 'AT SP 5'];
+      let sawResponse = false;
       for (const cmd of cmds) {
+        debugLog('Sending init command', cmd);
         await sendLine(cmd);
-        await new Promise(r => setTimeout(r, 400));
-        await readLinesWithTimeout(1200);
+        await new Promise(r => setTimeout(r, cmd === 'ATZ' ? 1000 : 400));
+        const lines = await readLinesWithTimeout(1200);
+        debugLog('Init command response lines', cmd, lines);
+        if (lines && lines.length) sawResponse = true;
+        const busErr = getBusErrorLine(lines);
+        if (busErr) {
+          serialStatus.textContent = 'ABS not connected: BUS INIT/BUS ERROR. Check K-line wiring (pin 7 → 12).';
+          appendSerialLog('Bus error: ' + busErr);
+          appendSerialLog('Check adapter wiring to ABS (e.g. pin 7 to pin 12 on connector).');
+        }
       }
       appendSerialLog('Init sequence sent.');
+      debugLog('InitAbs complete, sawResponse =', sawResponse);
+      return sawResponse;
     }
 
     function extractHexLine(lines) {
@@ -562,17 +606,39 @@
       return null;
     }
 
+    function getBusErrorLine(lines) {
+      if (!lines || !lines.length) return null;
+      const err = lines.find(l => /BUS\s*INIT|BUS\s*ERROR/i.test(l));
+      return err || null;
+    }
+
     async function readDtcSerial() {
+      if (!serialPort || !serialPort.writable) {
+        appendSerialLog('Read DTC requested but serial is not connected.');
+        serialStatus.textContent = 'Not connected.';
+        return;
+      }
+      debugLog('Requesting DTC read…');
       errorEl.textContent = '';
       resultsPanel.classList.remove('visible');
       await sendLine('18 00 FF 00');
       const lines = await readLinesWithTimeout(2500);
+       debugLog('Raw DTC response lines', lines);
       const hexLine = extractHexLine(lines);
       if (!hexLine) {
-        errorEl.textContent = 'No valid DTC response from ABS. Check init and adapter.';
-        appendSerialLog('No DTC hex line found in response.');
+        const busErr = getBusErrorLine(lines);
+        if (busErr) {
+          errorEl.textContent = 'ABS bus error (not connected). Check K-line wiring: pin 7 → 12 on the ABS connector.';
+          serialStatus.textContent = 'BUS ERROR: check K-line (pin 7 → 12).';
+          appendSerialLog('No DTC hex line; bus error: ' + busErr);
+        } else {
+          errorEl.textContent = 'No valid DTC response from ABS. Check init and adapter.';
+          appendSerialLog('No DTC hex line found in response.');
+        }
+        debugLog('No hex DTC line could be extracted from response.');
         return;
       }
+      debugLog('Using hex line for DTC parse', hexLine);
       const parseResult = parseHexInput(hexLine);
       if (parseResult.error) {
         errorEl.textContent = parseResult.error;
@@ -583,15 +649,30 @@
       if (dtcResult.error) {
         errorEl.textContent = dtcResult.error;
         appendSerialLog('DTC: ' + dtcResult.error);
+        debugLog('DTC parse error', dtcResult.error);
         return;
       }
+      debugLog('DTC decode result', dtcResult);
       displayDtcResult(dtcResult);
     }
 
     async function identifyAbs() {
+      if (!serialPort || !serialPort.writable) {
+        appendSerialLog('Identify requested but serial is not connected.');
+        serialStatus.textContent = 'Not connected.';
+        return;
+      }
+      debugLog('Requesting ABS identification…');
       errorEl.textContent = '';
       await sendLine('1A 80');
       const lines = await readLinesWithTimeout(2500);
+      debugLog('Identification response lines', lines);
+      const busErr = getBusErrorLine(lines);
+      if (busErr) {
+        appendSerialLog('Identification response: ' + busErr);
+        serialStatus.textContent = 'ABS not connected: BUS ERROR. Check K-line (pin 7 → 12).';
+        return;
+      }
       if (!lines.length) {
         appendSerialLog('No identification response.');
         serialStatus.textContent = 'No identification response.';
@@ -602,14 +683,50 @@
     }
 
     async function clearDtcSerial() {
+      if (!serialPort || !serialPort.writable) {
+        appendSerialLog('Clear DTC requested but serial is not connected.');
+        serialStatus.textContent = 'Not connected.';
+        return;
+      }
+      debugLog('Requesting DTC clear…');
       errorEl.textContent = '';
       await sendLine('14 FF 00');
       const lines = await readLinesWithTimeout(2500);
+      debugLog('Clear DTC response lines', lines);
       if (!lines.length) {
         appendSerialLog('No response to clear command.');
       }
       appendSerialLog('Clear DTC command sent.');
       serialStatus.textContent = 'Clear command sent (cycle ignition and re-read).';
+    }
+
+    async function checkElm() {
+      if (!serialPort || !serialPort.writable) {
+        appendSerialLog('Check ELM requested but serial is not connected.');
+        serialStatus.textContent = 'Not connected.';
+        return;
+      }
+      debugLog('Check ELM: sending ATZ then ATI…');
+      serialStatus.textContent = 'Checking ELM…';
+      await sendLine('ATZ');
+      await new Promise(r => setTimeout(r, 1000));
+      await readLinesWithTimeout(1500);
+      await sendLine('ATI');
+      const lines = await readLinesWithTimeout(2000);
+      debugLog('Check ELM response lines', lines);
+      if (lines && lines.length) {
+        const versionLine = lines.find(l => /ELM|OBD|v\d/i.test(l)) || lines[0];
+        serialStatus.textContent = 'ELM: ' + versionLine;
+        appendSerialLog('Check ELM: ' + versionLine);
+      } else {
+        serialStatus.textContent = 'No ELM response. Check baud/power.';
+        appendSerialLog('Check ELM: no response.');
+      }
+    }
+
+    // Ensure a clean initial state when serial is supported
+    if ('serial' in navigator) {
+      setSerialConnected(false);
     }
 
     serialConnectBtn.addEventListener('click', connectSerial);
@@ -618,6 +735,7 @@
     serialReadDtcBtn.addEventListener('click', readDtcSerial);
     serialIdentBtn.addEventListener('click', identifyAbs);
     serialClearBtn.addEventListener('click', clearDtcSerial);
+    serialCheckElmBtn.addEventListener('click', checkElm);
   </script>
 </body>
 </html>
