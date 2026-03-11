@@ -13,6 +13,14 @@
     .no-codes { font-size: 0.85rem; color: var(--success); padding: 1rem; text-align: center; }
     .code-cell { font-weight: 600; color: var(--accent); white-space: nowrap; }
     .num-cell { color: var(--muted); width: 2rem; }
+    .serial-log { font-size: 0.8rem; margin-top: 0.25rem; }
+    .wiring-table { font-size: 0.8rem; }
+    .wiring-table td { padding: 0.4rem 0.75rem; }
+    .wiring-table .pin-num { font-weight: 600; color: var(--accent); white-space: nowrap; width: 3rem; }
+    .wiring-table .pin-usage { color: var(--text); white-space: nowrap; }
+    .wiring-table .pin-notes { color: var(--muted); }
+    .wiring-table .empty-row td { color: var(--border); }
+    .notes-section { margin-top: 1rem; }
   </style>
 </head>
 <body>
@@ -21,6 +29,24 @@
     <h1>Decode Lotus ABS Codes</h1>
   </div>
   <div class="layout">
+    <div class="panel">
+      <h2>Serial (ELM327 + ABS)</h2>
+      <p class="hint">Connect an ELM327 adapter (USB or Bluetooth serial) with PIN 7→12 for ABS. Use Chrome or Edge on HTTPS or localhost. Baud: 38400.</p>
+      <div id="serial-unsupported" class="error" style="display: none;">Serial not available in this browser. Use Chrome or Edge and ensure the page is served over HTTPS or localhost.</div>
+      <div id="serial-controls">
+        <div class="button-row">
+          <button type="button" id="serial-connect">Connect</button>
+          <button type="button" id="serial-disconnect" class="secondary" disabled>Disconnect</button>
+          <button type="button" id="serial-init" class="secondary" disabled>Init ABS</button>
+          <button type="button" id="serial-read-dtc" class="secondary" disabled>Read DTC</button>
+          <button type="button" id="serial-ident" class="secondary" disabled>Identify</button>
+          <button type="button" id="serial-clear-dtc" class="secondary" disabled>Clear DTC</button>
+        </div>
+        <p class="hint" id="serial-status">Disconnected.</p>
+        <label for="serial-log" class="output-label">Serial log</label>
+        <textarea id="serial-log" readonly rows="6" class="serial-log"></textarea>
+      </div>
+    </div>
     <div class="panel">
       <h2>Diagnostic Trouble Code Data</h2>
       <textarea id="dtc-data" placeholder="Paste hex bytes from OBD scan tool (e.g. 58 09 40 35 A4...)"></textarea>
@@ -46,6 +72,200 @@
         </thead>
         <tbody id="dtc-tbody"></tbody>
       </table>
+    </div>
+
+    <div class="panel">
+      <h2>Wiring — EBC430 ABS Plug</h2>
+      <div class="notes-section">
+        <table class="wiring-table">
+          <thead>
+            <tr>
+              <th>Pin</th>
+              <th>Wire Color</th>
+              <th>Usage</th>
+              <th>Keep</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="pin-num">1</td>
+              <td>LtGrn/Yel</td>
+              <td class="pin-usage">LF Wheel Speed Output</td>
+              <td></td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr>
+              <td class="pin-num">2</td>
+              <td>LtGrn/Gry</td>
+              <td class="pin-usage">RF Wheel Speed Output</td>
+              <td></td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr>
+              <td class="pin-num">3</td>
+              <td>LtGrn/Pnk</td>
+              <td class="pin-usage">LR Wheel Speed Output</td>
+              <td></td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr>
+              <td class="pin-num">4</td>
+              <td>LtGrn</td>
+              <td class="pin-usage">RR Wheel Speed Output</td>
+              <td></td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr class="empty-row">
+              <td class="pin-num">5</td>
+              <td></td>
+              <td class="pin-usage"></td>
+              <td></td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr class="empty-row">
+              <td class="pin-num">6</td>
+              <td></td>
+              <td class="pin-usage"></td>
+              <td></td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr class="empty-row">
+              <td class="pin-num">7</td>
+              <td></td>
+              <td class="pin-usage"></td>
+              <td></td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr class="empty-row">
+              <td class="pin-num">8</td>
+              <td></td>
+              <td class="pin-usage"></td>
+              <td></td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr>
+              <td class="pin-num">9</td>
+              <td>Red</td>
+              <td class="pin-usage">RR Wheel Speed Input A</td>
+              <td>X</td>
+              <td class="pin-notes">Twisted pair</td>
+            </tr>
+            <tr>
+              <td class="pin-num">10</td>
+              <td>Blu</td>
+              <td class="pin-usage">RR Wheel Speed Input B</td>
+              <td>X</td>
+              <td class="pin-notes">Twisted pair</td>
+            </tr>
+            <tr>
+              <td class="pin-num">11</td>
+              <td>Prp/Yel</td>
+              <td class="pin-usage">K-Line</td>
+              <td></td>
+              <td class="pin-notes">Diagnosis</td>
+            </tr>
+            <tr>
+              <td class="pin-num">12</td>
+              <td>Gry</td>
+              <td class="pin-usage">RF Wheel Speed Input A</td>
+              <td>X</td>
+              <td class="pin-notes">Twisted pair</td>
+            </tr>
+            <tr>
+              <td class="pin-num">13</td>
+              <td>Grn</td>
+              <td class="pin-usage">RF Wheel Speed Input B</td>
+              <td>X</td>
+              <td class="pin-notes">Twisted pair</td>
+            </tr>
+            <tr>
+              <td class="pin-num">14</td>
+              <td>Yel</td>
+              <td class="pin-usage">LF Wheel Speed Input A</td>
+              <td>X</td>
+              <td class="pin-notes">Twisted pair</td>
+            </tr>
+            <tr>
+              <td class="pin-num">15</td>
+              <td>Grn</td>
+              <td class="pin-usage">10a 12v</td>
+              <td>X</td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr>
+              <td class="pin-num">16</td>
+              <td>Blk</td>
+              <td class="pin-usage">Ground</td>
+              <td>X</td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr>
+              <td class="pin-num">17</td>
+              <td>Brn/Blu</td>
+              <td class="pin-usage">60a 12v Shared</td>
+              <td>X</td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr>
+              <td class="pin-num">18</td>
+              <td>Brn/Blu</td>
+              <td class="pin-usage">60a 12v Shared</td>
+              <td>X</td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr>
+              <td class="pin-num">19</td>
+              <td>Blk</td>
+              <td class="pin-usage">Ground</td>
+              <td>X</td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr>
+              <td class="pin-num">20</td>
+              <td>Blk/Yel</td>
+              <td class="pin-usage">ABS Fail Light Output</td>
+              <td></td>
+              <td class="pin-notes">Grounds wire when failed; needs a resistor to ground to emulate bulb or ABS fail light code is thrown</td>
+            </tr>
+            <tr class="empty-row">
+              <td class="pin-num">21</td>
+              <td></td>
+              <td class="pin-usage"></td>
+              <td></td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr>
+              <td class="pin-num">22</td>
+              <td>Prp</td>
+              <td class="pin-usage">LR Wheel Speed Input A</td>
+              <td>X</td>
+              <td class="pin-notes">Twisted pair</td>
+            </tr>
+            <tr>
+              <td class="pin-num">23</td>
+              <td>Brn</td>
+              <td class="pin-usage">LR Wheel Speed Input B</td>
+              <td>X</td>
+              <td class="pin-notes">Twisted pair</td>
+            </tr>
+            <tr>
+              <td class="pin-num">24</td>
+              <td>Grn/Prp</td>
+              <td class="pin-usage">Brake Pedal Input</td>
+              <td>X</td>
+              <td class="pin-notes"></td>
+            </tr>
+            <tr>
+              <td class="pin-num">25</td>
+              <td>Pnk</td>
+              <td class="pin-usage">LF Wheel Speed Input B</td>
+              <td>X</td>
+              <td class="pin-notes">Twisted pair</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -171,6 +391,10 @@
         return;
       }
 
+      displayDtcResult(dtcResult);
+    }
+
+    function displayDtcResult(dtcResult) {
       const chassisDtcs = dtcResult.dtcs.filter(d => d.typeChar === 'C');
 
       summaryEl.innerHTML = `Found <strong>${dtcResult.count}</strong> total DTC(s), ` +
@@ -213,6 +437,212 @@
         analyze();
       }
     });
+
+    // --- Serial (Web Serial API) ---
+    const serialUnsupported = $('serial-unsupported');
+    const serialConnectBtn = $('serial-connect');
+    const serialDisconnectBtn = $('serial-disconnect');
+    const serialInitBtn = $('serial-init');
+    const serialReadDtcBtn = $('serial-read-dtc');
+    const serialIdentBtn = $('serial-ident');
+    const serialClearBtn = $('serial-clear-dtc');
+    const serialStatus = $('serial-status');
+    const serialLog = $('serial-log');
+
+    if (!('serial' in navigator)) {
+      serialUnsupported.style.display = 'block';
+      serialConnectBtn.disabled = true;
+      serialDisconnectBtn.disabled = true;
+      serialInitBtn.disabled = true;
+      serialReadDtcBtn.disabled = true;
+      serialIdentBtn.disabled = true;
+      serialClearBtn.disabled = true;
+    }
+
+    let serialPort = null;
+    let serialWriter = null;
+    let serialDecoder = null;
+    let serialReadableClosed = null;
+    let serialWritableClosed = null;
+
+    function appendSerialLog(text) {
+      const line = serialLog.value ? serialLog.value + '\n' + text : text;
+      serialLog.value = line.slice(-8000);
+      serialLog.scrollTop = serialLog.scrollHeight;
+    }
+
+    function setSerialConnected(connected) {
+      serialConnectBtn.disabled = connected;
+      serialDisconnectBtn.disabled = !connected;
+      serialInitBtn.disabled = !connected;
+      serialReadDtcBtn.disabled = !connected;
+      serialIdentBtn.disabled = !connected;
+      serialClearBtn.disabled = !connected;
+      serialStatus.textContent = connected ? 'Connected.' : 'Disconnected.';
+    }
+
+    async function sendLine(line) {
+      if (!serialWriter) return;
+      appendSerialLog('> ' + line);
+      await serialWriter.write(line + '\r');
+    }
+
+    async function readLinesWithTimeout(ms) {
+      if (!serialDecoder || !serialDecoder.readable) return [];
+      const lines = [];
+      let buffer = '';
+      const timeout = Date.now() + ms;
+      const reader = serialDecoder.readable.getReader();
+      try {
+        while (Date.now() < timeout) {
+          let result;
+          try {
+            result = await Promise.race([
+              reader.read(),
+              new Promise((_, rej) => setTimeout(() => rej({ timeout: true }), 200))
+            ]);
+          } catch (e) {
+            if (e.timeout) break;
+            throw e;
+          }
+          const { value, done } = result;
+          if (value) {
+            buffer += new TextDecoder().decode(value);
+            const parts = buffer.split(/\r?\n/);
+            buffer = parts.pop() || '';
+            parts.forEach(p => {
+              const t = p.trim();
+              if (t) {
+                lines.push(t);
+                appendSerialLog('< ' + t);
+              }
+            });
+          }
+          if (done) break;
+        }
+      } catch (e) {
+        appendSerialLog('(read: ' + (e.message || e) + ')');
+      } finally {
+        reader.releaseLock();
+      }
+      return lines;
+    }
+
+    async function connectSerial() {
+      try {
+        serialPort = await navigator.serial.requestPort();
+        await serialPort.open({ baudRate: 38400 });
+        const encoder = new TextEncoderStream();
+        serialWritableClosed = encoder.readable.pipeTo(serialPort.writable);
+        serialWriter = encoder.writable.getWriter();
+        serialDecoder = new TextDecoderStream();
+        serialReadableClosed = serialPort.readable.pipeTo(serialDecoder.writable);
+        setSerialConnected(true);
+        appendSerialLog('Connected at 38400 baud.');
+        serialStatus.textContent = 'Initializing ABS...';
+        await initAbs();
+        serialStatus.textContent = 'Connected. Reading identification...';
+        await identifyAbs();
+      } catch (e) {
+        appendSerialLog('Connect failed: ' + (e.message || e));
+      }
+    }
+
+    async function disconnectSerial() {
+      if (!serialPort) return;
+      try {
+        if (serialWriter) {
+          await serialWriter.close();
+          serialWriter = null;
+        }
+        if (serialWritableClosed) await serialWritableClosed;
+        if (serialReadableClosed) await serialReadableClosed;
+        await serialPort.close();
+      } catch (e) {
+        appendSerialLog('Disconnect: ' + (e.message || e));
+      }
+      serialPort = null;
+      serialDecoder = null;
+      setSerialConnected(false);
+      appendSerialLog('Disconnected.');
+    }
+
+    async function initAbs() {
+      const cmds = ['ATZ', 'AT L1', 'AT SH 812BF1', 'AT WM 812BF13E', 'AT SP 5'];
+      for (const cmd of cmds) {
+        await sendLine(cmd);
+        await new Promise(r => setTimeout(r, 400));
+        await readLinesWithTimeout(1200);
+      }
+      appendSerialLog('Init sequence sent.');
+    }
+
+    function extractHexLine(lines) {
+      for (const line of lines) {
+        const hexOnly = line.replace(/\s+/g, ' ').trim();
+        if (/^[0-9A-Fa-f\s]+$/.test(hexOnly) && hexOnly.replace(/\s/g, '').length >= 16 && (hexOnly.includes('58') || hexOnly.includes('59'))) {
+          return hexOnly;
+        }
+      }
+      return null;
+    }
+
+    async function readDtcSerial() {
+      errorEl.textContent = '';
+      resultsPanel.classList.remove('visible');
+      await sendLine('18 00 FF 00');
+      const lines = await readLinesWithTimeout(2500);
+      const hexLine = extractHexLine(lines);
+      if (!hexLine) {
+        errorEl.textContent = 'No valid DTC response from ABS. Check init and adapter.';
+        appendSerialLog('No DTC hex line found in response.');
+        return;
+      }
+      const parseResult = parseHexInput(hexLine);
+      if (parseResult.error) {
+        errorEl.textContent = parseResult.error;
+        appendSerialLog('Parse: ' + parseResult.error);
+        return;
+      }
+      const dtcResult = parseDtcResponse(parseResult.bytes);
+      if (dtcResult.error) {
+        errorEl.textContent = dtcResult.error;
+        appendSerialLog('DTC: ' + dtcResult.error);
+        return;
+      }
+      displayDtcResult(dtcResult);
+    }
+
+    async function identifyAbs() {
+      errorEl.textContent = '';
+      await sendLine('1A 80');
+      const lines = await readLinesWithTimeout(2500);
+      if (!lines.length) {
+        appendSerialLog('No identification response.');
+        serialStatus.textContent = 'No identification response.';
+        return;
+      }
+      appendSerialLog('Identification complete.');
+      serialStatus.textContent = 'Identification received (see serial log).';
+    }
+
+    async function clearDtcSerial() {
+      errorEl.textContent = '';
+      await sendLine('14 FF 00');
+      const lines = await readLinesWithTimeout(2500);
+      if (!lines.length) {
+        appendSerialLog('No response to clear command.');
+      }
+      appendSerialLog('Clear DTC command sent.');
+      serialStatus.textContent = 'Clear command sent (cycle ignition and re-read).';
+    }
+
+    serialConnectBtn.addEventListener('click', connectSerial);
+    serialDisconnectBtn.addEventListener('click', disconnectSerial);
+    serialInitBtn.addEventListener('click', initAbs);
+    serialReadDtcBtn.addEventListener('click', readDtcSerial);
+    serialIdentBtn.addEventListener('click', identifyAbs);
+    serialClearBtn.addEventListener('click', clearDtcSerial);
   </script>
 </body>
 </html>
