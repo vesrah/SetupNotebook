@@ -43,6 +43,7 @@
           <button type="button" id="serial-clear-dtc" class="secondary" disabled>Clear DTC</button>
         </div>
         <p class="hint" id="serial-status">Disconnected.</p>
+        <p class="hint">For diagnostics, it is usually helpful to clear DTCs, then read again to see which codes return.</p>
         <label for="serial-log" class="output-label">Serial log</label>
         <textarea id="serial-log" readonly rows="6" class="serial-log"></textarea>
       </div>
@@ -83,7 +84,6 @@
               <th>Pin</th>
               <th>Wire Color</th>
               <th>Usage</th>
-              <th>Keep</th>
               <th>Notes</th>
             </tr>
           </thead>
@@ -92,175 +92,150 @@
               <td class="pin-num">1</td>
               <td>LtGrn/Yel</td>
               <td class="pin-usage">LF Wheel Speed Output</td>
-              <td></td>
               <td class="pin-notes"></td>
             </tr>
             <tr>
               <td class="pin-num">2</td>
               <td>LtGrn/Gry</td>
               <td class="pin-usage">RF Wheel Speed Output</td>
-              <td></td>
               <td class="pin-notes"></td>
             </tr>
             <tr>
               <td class="pin-num">3</td>
               <td>LtGrn/Pnk</td>
               <td class="pin-usage">LR Wheel Speed Output</td>
-              <td></td>
               <td class="pin-notes"></td>
             </tr>
             <tr>
               <td class="pin-num">4</td>
               <td>LtGrn</td>
               <td class="pin-usage">RR Wheel Speed Output</td>
-              <td></td>
               <td class="pin-notes"></td>
             </tr>
             <tr class="empty-row">
               <td class="pin-num">5</td>
               <td></td>
               <td class="pin-usage"></td>
-              <td></td>
               <td class="pin-notes"></td>
             </tr>
             <tr class="empty-row">
               <td class="pin-num">6</td>
               <td></td>
               <td class="pin-usage"></td>
-              <td></td>
               <td class="pin-notes"></td>
             </tr>
             <tr class="empty-row">
               <td class="pin-num">7</td>
               <td></td>
               <td class="pin-usage"></td>
-              <td></td>
               <td class="pin-notes"></td>
             </tr>
             <tr class="empty-row">
               <td class="pin-num">8</td>
               <td></td>
               <td class="pin-usage"></td>
-              <td></td>
               <td class="pin-notes"></td>
             </tr>
             <tr>
               <td class="pin-num">9</td>
               <td>Red</td>
               <td class="pin-usage">RR Wheel Speed Input A</td>
-              <td>X</td>
               <td class="pin-notes">Twisted pair</td>
             </tr>
             <tr>
               <td class="pin-num">10</td>
               <td>Blu</td>
               <td class="pin-usage">RR Wheel Speed Input B</td>
-              <td>X</td>
               <td class="pin-notes">Twisted pair</td>
             </tr>
             <tr>
               <td class="pin-num">11</td>
               <td>Prp/Yel</td>
               <td class="pin-usage">K-Line</td>
-              <td></td>
               <td class="pin-notes">Diagnosis</td>
             </tr>
             <tr>
               <td class="pin-num">12</td>
               <td>Gry</td>
               <td class="pin-usage">RF Wheel Speed Input A</td>
-              <td>X</td>
               <td class="pin-notes">Twisted pair</td>
             </tr>
             <tr>
               <td class="pin-num">13</td>
               <td>Grn</td>
               <td class="pin-usage">RF Wheel Speed Input B</td>
-              <td>X</td>
               <td class="pin-notes">Twisted pair</td>
             </tr>
             <tr>
               <td class="pin-num">14</td>
               <td>Yel</td>
               <td class="pin-usage">LF Wheel Speed Input A</td>
-              <td>X</td>
               <td class="pin-notes">Twisted pair</td>
             </tr>
             <tr>
               <td class="pin-num">15</td>
               <td>Grn</td>
               <td class="pin-usage">10a 12v</td>
-              <td>X</td>
               <td class="pin-notes"></td>
             </tr>
             <tr>
               <td class="pin-num">16</td>
               <td>Blk</td>
               <td class="pin-usage">Ground</td>
-              <td>X</td>
               <td class="pin-notes"></td>
             </tr>
             <tr>
               <td class="pin-num">17</td>
               <td>Brn/Blu</td>
               <td class="pin-usage">60a 12v Shared</td>
-              <td>X</td>
               <td class="pin-notes"></td>
             </tr>
             <tr>
               <td class="pin-num">18</td>
               <td>Brn/Blu</td>
               <td class="pin-usage">60a 12v Shared</td>
-              <td>X</td>
               <td class="pin-notes"></td>
             </tr>
             <tr>
               <td class="pin-num">19</td>
               <td>Blk</td>
               <td class="pin-usage">Ground</td>
-              <td>X</td>
               <td class="pin-notes"></td>
             </tr>
             <tr>
               <td class="pin-num">20</td>
               <td>Blk/Yel</td>
               <td class="pin-usage">ABS Fail Light Output</td>
-              <td></td>
               <td class="pin-notes">Grounds wire when failed; needs a resistor to ground to emulate bulb or ABS fail light code is thrown</td>
             </tr>
             <tr class="empty-row">
               <td class="pin-num">21</td>
               <td></td>
               <td class="pin-usage"></td>
-              <td></td>
               <td class="pin-notes"></td>
             </tr>
             <tr>
               <td class="pin-num">22</td>
               <td>Prp</td>
               <td class="pin-usage">LR Wheel Speed Input A</td>
-              <td>X</td>
               <td class="pin-notes">Twisted pair</td>
             </tr>
             <tr>
               <td class="pin-num">23</td>
               <td>Brn</td>
               <td class="pin-usage">LR Wheel Speed Input B</td>
-              <td>X</td>
               <td class="pin-notes">Twisted pair</td>
             </tr>
             <tr>
               <td class="pin-num">24</td>
               <td>Grn/Prp</td>
               <td class="pin-usage">Brake Pedal Input</td>
-              <td>X</td>
               <td class="pin-notes"></td>
             </tr>
             <tr>
               <td class="pin-num">25</td>
               <td>Pnk</td>
               <td class="pin-usage">LF Wheel Speed Input B</td>
-              <td>X</td>
               <td class="pin-notes">Twisted pair</td>
             </tr>
           </tbody>
@@ -507,7 +482,7 @@
           }
           const { value, done } = result;
           if (value) {
-            buffer += new TextDecoder().decode(value);
+            buffer += typeof value === 'string' ? value : new TextDecoder().decode(value);
             const parts = buffer.split(/\r?\n/);
             buffer = parts.pop() || '';
             parts.forEach(p => {
