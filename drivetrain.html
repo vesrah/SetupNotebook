@@ -152,18 +152,44 @@
     </div>
 
     <div class="panel">
-      <h2>NASA Avg HP Calculation</h2>
+      <h2>NASA Avg HP Calculation (High tune)</h2>
       <p class="hint">Based on NASA rules: Uses 250 RPM increment data points. Since max RPM &gt; 7000, uses 7 highest HP values plus Max HP, divided by 8.</p>
       <table class="calc-table" id="calc-summary"></table>
       <div class="avg-breakdown" id="avg-breakdown"></div>
     </div>
 
     <div class="panel">
+      <h2>NASA Avg HP Calculation (Low tune)</h2>
+      <p class="hint">Same NASA formula applied to the low dyno run.</p>
+      <table class="calc-table" id="calc-summary-low"></table>
+      <div class="avg-breakdown" id="avg-breakdown-low"></div>
+    </div>
+
+    <div class="panel">
       <details id="full-data-table-details">
-        <summary><h2 style="display: inline;">Full Data Table</h2></summary>
+        <summary><h2 style="display: inline;">Full Data Table (High tune)</h2></summary>
         <p class="hint">Highlighted rows are 250 RPM increments used for NASA Avg HP calculation. Green row is max HP.</p>
         <div class="table-scroll">
           <table class="data-table" id="data-table">
+            <thead>
+              <tr>
+                <th>RPM</th>
+                <th>HP</th>
+                <th>Torque (lb-ft)</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </details>
+    </div>
+
+    <div class="panel">
+      <details id="full-data-table-low-details">
+        <summary><h2 style="display: inline;">Full Data Table (Low tune)</h2></summary>
+        <p class="hint">Low dyno run. Highlighted rows are 250 RPM increments for NASA Avg. Green row is max HP.</p>
+        <div class="table-scroll">
+          <table class="data-table" id="data-table-low">
             <thead>
               <tr>
                 <th>RPM</th>
@@ -227,16 +253,33 @@
     'use strict';
 
     const data = DEFAULT_SETUP;
-    const dynoData = data.drivetrain?.engine?.dyno?.data || [];
+    const dynoData = data.drivetrain?.engine?.dyno?.["high tune"]?.data || [];
+    const dynoDataLow = data.drivetrain?.engine?.dyno?.["low tune"]?.data || [];
     if (dynoData.length === 0) {
       const layout = document.querySelector('.layout');
       const summaryPanel = document.getElementById('summary')?.closest('.panel');
       if (summaryPanel) {
         const msg = document.createElement('div');
         msg.className = 'panel';
-        msg.innerHTML = '<p>No dyno data in setup.js. Add drivetrain.engine.dyno.data.</p>';
+        msg.innerHTML = '<p>No dyno data in setup.js. Add drivetrain.engine.dyno["high tune"].data.</p>';
         layout.insertBefore(msg, summaryPanel);
       }
+    }
+
+    function interpolateDyno(arr, rpm) {
+      if (!arr.length) return { hp: 0, torque_lb_ft: 0 };
+      if (rpm <= arr[0].rpm) return { hp: arr[0].hp, torque_lb_ft: arr[0].torque_lb_ft };
+      if (rpm >= arr[arr.length - 1].rpm) return { hp: arr[arr.length - 1].hp, torque_lb_ft: arr[arr.length - 1].torque_lb_ft };
+      for (let i = 0; i < arr.length - 1; i++) {
+        if (rpm >= arr[i].rpm && rpm <= arr[i + 1].rpm) {
+          const t = (rpm - arr[i].rpm) / (arr[i + 1].rpm - arr[i].rpm);
+          return {
+            hp: arr[i].hp + t * (arr[i + 1].hp - arr[i].hp),
+            torque_lb_ft: arr[i].torque_lb_ft + t * (arr[i + 1].torque_lb_ft - arr[i].torque_lb_ft)
+          };
+        }
+      }
+      return { hp: 0, torque_lb_ft: 0 };
     }
 
     function populateTransmission() {
@@ -431,12 +474,12 @@
     const summaryEl = $('summary');
     summaryEl.innerHTML = `
       <div class="summary-card">
-        <div class="value">${maxHpEntry.hp.toFixed(1)}</div>
+        <div class="value">${Math.round(maxHpEntry.hp)}</div>
         <div class="label">Peak HP</div>
         <div class="sub">@ ${maxHpEntry.rpm} RPM</div>
       </div>
       <div class="summary-card">
-        <div class="value">${maxTorqueEntry.torque_lb_ft.toFixed(1)}</div>
+        <div class="value">${Math.round(maxTorqueEntry.torque_lb_ft)}</div>
         <div class="label">Peak Torque (lb-ft)</div>
         <div class="sub">@ ${maxTorqueEntry.rpm} RPM</div>
       </div>
@@ -494,6 +537,44 @@
         Avg HP = (${hpValues.join(' + ')}) / ${divisor} = ${sum} / ${divisor} = <strong>${Math.round(avgHp)}</strong>
       </div>
     `;
+
+    // NASA Avg HP (Low tune)
+    const maxHpEntryLow = dynoDataLow.length ? dynoDataLow.reduce((max, d) => d.hp > max.hp ? d : max, dynoDataLow[0]) : null;
+    const highestRpmLow = dynoDataLow.length ? Math.max(...dynoDataLow.map(d => d.rpm)) : 0;
+    let calcSummaryLowEl = null;
+    let avgBreakdownLowEl = null;
+    if (dynoDataLow.length && maxHpEntryLow) {
+      const data250Low = dynoDataLow.filter(d => is250Increment(d.rpm));
+      const sorted250Low = [...data250Low].sort((a, b) => b.hp - a.hp);
+      let numPointsLow, divisorLow;
+      if (highestRpmLow > 7000) { numPointsLow = 7; divisorLow = 8; } else if (highestRpmLow >= 6000) { numPointsLow = 5; divisorLow = 6; } else { numPointsLow = 3; divisorLow = 4; }
+      const maxHpRoundedLow = Math.round(maxHpEntryLow.hp);
+      const topPointsLow = sorted250Low.slice(0, numPointsLow + 1).filter(d => d.rpm !== maxHpEntryLow.rpm).slice(0, numPointsLow);
+      const topPointsRoundedLow = topPointsLow.map(d => ({ rpm: d.rpm, hp: Math.round(d.hp) }));
+      const sumLow = maxHpRoundedLow + topPointsRoundedLow.reduce((s, d) => s + d.hp, 0);
+      const avgHpLow = sumLow / divisorLow;
+      calcSummaryLowEl = $('calc-summary-low');
+      avgBreakdownLowEl = $('avg-breakdown-low');
+      if (calcSummaryLowEl) {
+        calcSummaryLowEl.innerHTML = `
+          <tr><th>Max HP</th><td>${maxHpRoundedLow} @ ${maxHpEntryLow.rpm} RPM</td></tr>
+          <tr><th>Highest RPM on Dyno</th><td>${highestRpmLow}</td></tr>
+          <tr><th>Calculation Type</th><td>${numPointsLow + 1} points (max RPM ${highestRpmLow > 7000 ? '> 7000' : highestRpmLow >= 6000 ? '6000-7000' : '< 6000'})</td></tr>
+          <tr><th>NASA Avg HP</th><td style="font-size: 1.25rem; color: var(--accent);">${Math.round(avgHpLow)}</td></tr>
+        `;
+      }
+      if (avgBreakdownLowEl) {
+        const pointsStrLow = topPointsRoundedLow.map(d => `${d.hp} @ ${d.rpm}`).join(', ');
+        const hpValuesLow = [maxHpRoundedLow, ...topPointsRoundedLow.map(d => d.hp)];
+        avgBreakdownLowEl.innerHTML = `
+          <div><strong>Highest ${numPointsLow} HP data points (at 250 RPM increments):</strong></div>
+          <div style="margin: 0.5rem 0;">${pointsStrLow}</div>
+          <div class="avg-formula">
+            Avg HP = (${hpValuesLow.join(' + ')}) / ${divisorLow} = ${sumLow} / ${divisorLow} = <strong>${Math.round(avgHpLow)}</strong>
+          </div>
+        `;
+      }
+    }
 
     const highlightRpms = new Set([maxHpEntry.rpm, ...topPointsRounded.map(d => d.rpm)]);
 
@@ -608,34 +689,88 @@
       tableBody.appendChild(tr);
     });
 
+    const tableBodyLow = document.querySelector('#data-table-low tbody');
+    const maxHpEntryLowForTable = dynoDataLow.length ? dynoDataLow.reduce((max, d) => d.hp > max.hp ? d : max, dynoDataLow[0]) : null;
+    dynoDataLow.forEach(d => {
+      const tr = document.createElement('tr');
+      const isMax = maxHpEntryLowForTable && d.rpm === maxHpEntryLowForTable.rpm;
+      const is250 = is250Increment(d.rpm);
+      if (isMax) tr.classList.add('max-row');
+      else if (is250) tr.classList.add('highlight');
+      tr.innerHTML = `
+        <td>${d.rpm}</td>
+        <td>${d.hp.toFixed(2)}</td>
+        <td>${d.torque_lb_ft.toFixed(2)}</td>
+      `;
+      tableBodyLow.appendChild(tr);
+    });
+
+    const minRpms = [];
+    if (dynoData.length) minRpms.push(dynoData[0].rpm);
+    if (dynoDataLow.length) minRpms.push(dynoDataLow[0].rpm);
+    const minRpm = minRpms.length ? Math.min(...minRpms) : 0;
+    const maxRpmChart = dynoDataLow.length
+      ? Math.max(...dynoData.map(d => d.rpm), ...dynoDataLow.map(d => d.rpm))
+      : Math.max(...dynoData.map(d => d.rpm));
+    const unifiedRpm = [];
+    for (let r = minRpm; r <= maxRpmChart; r += 50) unifiedRpm.push(r);
+
+    const chartDatasets = [
+      {
+        label: 'HP (high tune)',
+        data: unifiedRpm.map(r => interpolateDyno(dynoData, r).hp),
+        borderColor: '#e85d04',
+        backgroundColor: '#e85d04',
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.1,
+        yAxisID: 'y'
+      },
+      {
+        label: 'Torque (high tune)',
+        data: unifiedRpm.map(r => interpolateDyno(dynoData, r).torque_lb_ft),
+        borderColor: '#38b000',
+        backgroundColor: '#38b000',
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0.1,
+        yAxisID: 'y'
+      }
+    ];
+    if (dynoDataLow.length > 0) {
+      chartDatasets.push(
+        {
+          label: 'HP (low tune)',
+          data: unifiedRpm.map(r => interpolateDyno(dynoDataLow, r).hp),
+          borderColor: '#ff9f1c',
+          backgroundColor: '#ff9f1c',
+          borderWidth: 2,
+          borderDash: [6, 4],
+          pointRadius: 0,
+          tension: 0.1,
+          yAxisID: 'y'
+        },
+        {
+          label: 'Torque (low tune)',
+          data: unifiedRpm.map(r => interpolateDyno(dynoDataLow, r).torque_lb_ft),
+          borderColor: '#6a994e',
+          backgroundColor: '#6a994e',
+          borderWidth: 2,
+          borderDash: [6, 4],
+          pointRadius: 0,
+          tension: 0.1,
+          yAxisID: 'y'
+        }
+      );
+    }
+
     const initialShiftPoints = computeShiftPoints();
     const ctx = $('dyno-chart');
     const dynoChart = new Chart(ctx, {
       type: 'line',
       data: {
-        labels: dynoData.map(d => d.rpm),
-        datasets: [
-          {
-            label: 'Horsepower',
-            data: dynoData.map(d => d.hp),
-            borderColor: '#e85d04',
-            backgroundColor: '#e85d04',
-            borderWidth: 2,
-            pointRadius: 0,
-            tension: 0.1,
-            yAxisID: 'y'
-          },
-          {
-            label: 'Torque (lb-ft)',
-            data: dynoData.map(d => d.torque_lb_ft),
-            borderColor: '#38b000',
-            backgroundColor: '#38b000',
-            borderWidth: 2,
-            pointRadius: 0,
-            tension: 0.1,
-            yAxisID: 'y'
-          }
-        ]
+        labels: unifiedRpm,
+        datasets: chartDatasets
       },
       options: {
         responsive: true,
@@ -653,8 +788,16 @@
             callbacks: {
               title: (items) => `${items[0].label} RPM`,
               label: (item) => {
-                const unit = item.datasetIndex === 0 ? ' HP' : ' lb-ft';
-                return `${item.dataset.label}: ${item.raw.toFixed(1)}${unit}`;
+                const isHp = item.datasetIndex === 0 || item.datasetIndex === 2;
+                return `${item.dataset.label}: ${item.raw.toFixed(1)}${isHp ? ' HP' : ' lb-ft'}`;
+              },
+              afterBody: (items) => {
+                if (items.length !== 4) return '';
+                const deltaHp = items[0].raw - items[2].raw;
+                const deltaTorque = items[1].raw - items[3].raw;
+                const signHp = deltaHp >= 0 ? '+' : '';
+                const signTorque = deltaTorque >= 0 ? '+' : '';
+                return [``, `Δ HP: ${signHp}${deltaHp.toFixed(1)} (high − low)`, `Δ Torque: ${signTorque}${deltaTorque.toFixed(1)} lb-ft (high − low)`];
               }
             }
           },
@@ -689,7 +832,7 @@
           },
           y: {
             title: { display: true, text: 'HP / Torque', color: '#a3a3a3' },
-            ticks: { color: '#a3a3a3' },
+            ticks: { color: '#a3a3a3', stepSize: 25 },
             grid: { color: 'rgba(163, 163, 163, 0.1)' },
             min: 0
           }
