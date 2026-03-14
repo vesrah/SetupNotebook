@@ -69,7 +69,12 @@
           <label for="balance-bar-split">Balance bar split</label>
           <input type="number" id="balance-bar-split" value="0.5" step="0.01" min="0" max="1">
         </div>
+        <div class="field">
+          <label for="pad-takeup-mm">Pad take-up per side (mm)</label>
+          <input type="number" id="pad-takeup-mm" value="0.4" step="0.05" min="0.1" max="2" title="Running clearance per pad side; affects pedal travel">
+        </div>
       </div>
+      <p class="hint">Pad take-up is the displacement to close running clearance (typical 0.3–0.5 mm per side). Larger caliper pistons need more fluid and increase pedal travel.</p>
     </div>
     <div class="panel">
       <h2>Front</h2>
@@ -196,7 +201,7 @@
       { name: 'AP Racing Cup', pist1_front_d_mm: 31.75, pist2_front_d_mm: 36, rotor_front_d_mm: 308, pad_front_height_mm: 46, front_mu: 0.42 },
       { name: 'AP Racing 44mm (Stock)', pist1_front_d_mm: 44.4, pist2_front_d_mm: 0, rotor_front_d_mm: 288, pad_front_height_mm: 47.3, front_mu: 0.42 },
       { name: 'AP Racing Radical CP9444', pist1_front_d_mm: 34.9, pist2_front_d_mm: 41.3, rotor_front_d_mm: 288, pad_front_height_mm: 42, front_mu: 0.42 },
-      { name: 'Radical CP9445', pist1_front_d_mm: 31.75, pist2_front_d_mm: 38.1, rotor_front_d_mm: 288, pad_front_height_mm: 42, front_mu: 0.42 },
+      { name: 'AP Racing Radical CP9445', pist1_front_d_mm: 31.75, pist2_front_d_mm: 38.1, rotor_front_d_mm: 288, pad_front_height_mm: 42, front_mu: 0.42 },
       { name: 'Wilwood 120-11783', pist1_front_d_mm: 31.75, pist2_front_d_mm: 31.75, rotor_front_d_mm: 288, pad_front_height_mm: 44, front_mu: 0.42 }
     ];
 
@@ -224,6 +229,7 @@
       const mc_front_d_in = num('mc-front-d-in');
       const mc_rear_d_in = num('mc-rear-d-in');
       const balance_bar_split = num('balance-bar-split');
+      const pad_takeup_mm = num('pad-takeup-mm');
 
       const pist1_front_d_mm = num('pist1-front-d-mm');
       const pist2_front_d_mm = num('pist2-front-d-mm');
@@ -248,7 +254,7 @@
 
       return {
         m, g, beta, L, h, e,
-        pedal_force_lb, pedal_ratio, booster_ratio, mc_front_d_in, mc_rear_d_in, balance_bar_split,
+        pedal_force_lb, pedal_ratio, booster_ratio, mc_front_d_in, mc_rear_d_in, balance_bar_split, pad_takeup_mm,
         pist1_front_d_mm, pist2_front_d_mm, pist1_rear_d_mm, pist2_rear_d_mm,
         rotor_front_d_mm, rotor_rear_d_mm, pad_front_height_mm, pad_rear_height_mm, front_mu, rear_mu,
         tire_front_section_width_mm, tire_front_aspect_ratio, tire_front_rim_d_in,
@@ -278,6 +284,17 @@
 
       const A_F_per_caliper = Math.PI * (pist1_front_d_m / 2) ** 2 + Math.PI * (pist2_front_d_m / 2) ** 2;
       const A_R_per_caliper = Math.PI * (pist1_rear_d_m / 2) ** 2 + Math.PI * (pist2_rear_d_m / 2) ** 2;
+
+      const stroke_m = (p.pad_takeup_mm * 2) / 1000;
+      const volume_front_m3 = 2 * A_F_per_caliper * stroke_m;
+      const volume_rear_m3 = 2 * A_R_per_caliper * stroke_m;
+      const mc_disp_front_m = volume_front_m3 / A_MC_F;
+      const mc_disp_rear_m = volume_rear_m3 / A_MC_R;
+      const mc_disp_max_m = Math.max(mc_disp_front_m, mc_disp_rear_m);
+      const pedal_travel_m = mc_disp_max_m * p.pedal_ratio;
+      const pedal_travel_in = pedal_travel_m / IN_TO_M;
+      const pedal_travel_front_in = (mc_disp_front_m * p.pedal_ratio) / IN_TO_M;
+      const pedal_travel_rear_in = (mc_disp_rear_m * p.pedal_ratio) / IN_TO_M;
 
       const rotor_front_r_m = (p.rotor_front_d_mm / 2) / 1000;
       const rotor_rear_r_m = (p.rotor_rear_d_mm / 2) / 1000;
@@ -331,6 +348,9 @@
         front_max_actual,
         rear_max_actual,
         front_bias_pct,
+        pedal_travel_in,
+        pedal_travel_front_in,
+        pedal_travel_rear_in,
         ideal: front_force.map((f, i) => ({ x: f, y: rear_force[i] })),
         currentLine: [{ x: 0, y: 0 }, { x: front_max_actual, y: rear_max_actual }],
         decelLines,
@@ -438,7 +458,9 @@
       $('results').innerHTML =
         'Front max brake force: <strong>' + Math.round(out.front_max_actual) + ' N</strong> &nbsp; ' +
         'Rear max brake force: <strong>' + Math.round(out.rear_max_actual) + ' N</strong> &nbsp; ' +
-        'Front brake bias: <strong>' + out.front_bias_pct.toFixed(1) + ' %</strong>';
+        'Front brake bias: <strong>' + out.front_bias_pct.toFixed(1) + ' %</strong>' +
+        ' &nbsp; | &nbsp; Pedal travel (take-up): <strong>' + out.pedal_travel_in.toFixed(2) + ' in</strong>' +
+        ' (front ' + out.pedal_travel_front_in.toFixed(2) + ', rear ' + out.pedal_travel_rear_in.toFixed(2) + ' in)';
 
       if (chartCache === cacheKey && chart) {
         return;
@@ -533,7 +555,7 @@
       }
     });
 
-    ['m','g','beta','l-mm','h-mm','pedal-force-lb','pedal-ratio','booster-ratio','mc-front-d-in','mc-rear-d-in','balance-bar-split',
+    ['m','g','beta','l-mm','h-mm','pedal-force-lb','pedal-ratio','booster-ratio','mc-front-d-in','mc-rear-d-in','balance-bar-split','pad-takeup-mm',
      'pist1-front-d-mm','pist2-front-d-mm','pist1-rear-d-mm','pist2-rear-d-mm','rotor-front-d-mm','rotor-rear-d-mm',
      'pad-front-height-mm','pad-rear-height-mm','front-mu','rear-mu','tire-front-section-width-mm','tire-front-aspect-ratio','tire-front-rim-d-in',
      'tire-rear-section-width-mm','tire-rear-aspect-ratio','tire-rear-rim-d-in','k-tire-front','k-tire-rear'].forEach(id => {
@@ -598,6 +620,7 @@
         if (input.mc_front_d_in != null) $('mc-front-d-in').value = input.mc_front_d_in;
         if (input.mc_rear_d_in != null) $('mc-rear-d-in').value = input.mc_rear_d_in;
         if (input.balance_bar_split != null) $('balance-bar-split').value = input.balance_bar_split;
+        if (input.pad_takeup_mm != null) $('pad-takeup-mm').value = input.pad_takeup_mm;
       }
 
       const fb = setup.brakes?.front;
