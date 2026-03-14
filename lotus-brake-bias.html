@@ -264,11 +264,13 @@
     }
 
     function compute(p) {
+      // Pedal to master cylinder
       const pedal_force_N = p.pedal_force_lb * LB_TO_N;
       const F_total_MC = pedal_force_N * p.pedal_ratio * p.booster_ratio;
       const F_MC_F = F_total_MC * p.balance_bar_split;
       const F_MC_R = F_total_MC * (1 - p.balance_bar_split);
 
+      // Hydraulic pressure at each circuit (P = F / A)
       const mc_front_d_m = p.mc_front_d_in * IN_TO_M;
       const mc_rear_d_m = p.mc_rear_d_in * IN_TO_M;
       const A_MC_F = Math.PI * (mc_front_d_m / 2) ** 2;
@@ -277,9 +279,11 @@
       const P_F = F_MC_F / A_MC_F;
       const P_R = F_MC_R / A_MC_R;
 
+      // Pad friction drops ~3% per MPa (pressure-dependent mu)
       const mu_pad_front = p.front_mu * (1 - 0.03 * (P_F / 1e6));
       const mu_pad_rear = p.rear_mu * (1 - 0.03 * (P_R / 1e6));
 
+      // Caliper piston area (both pistons per caliper, two calipers per axle)
       const pist1_front_d_m = p.pist1_front_d_mm / 1000;
       const pist2_front_d_m = p.pist2_front_d_mm / 1000;
       const pist1_rear_d_m = p.pist1_rear_d_mm / 1000;
@@ -288,6 +292,7 @@
       const A_F_per_caliper = Math.PI * (pist1_front_d_m / 2) ** 2 + Math.PI * (pist2_front_d_m / 2) ** 2;
       const A_R_per_caliper = Math.PI * (pist1_rear_d_m / 2) ** 2 + Math.PI * (pist2_rear_d_m / 2) ** 2;
 
+      // Pedal travel to take up pad clearance (fluid volume = 2 calipers × area × stroke)
       const stroke_m = (p.pad_takeup_mm * 2) / 1000;
       const volume_front_m3 = 2 * A_F_per_caliper * stroke_m;
       const volume_rear_m3 = 2 * A_R_per_caliper * stroke_m;
@@ -299,6 +304,7 @@
       const pedal_travel_front_in = (mc_disp_front_m * p.pedal_ratio) / IN_TO_M;
       const pedal_travel_rear_in = (mc_disp_rear_m * p.pedal_ratio) / IN_TO_M;
 
+      // Rotor effective radius (mean radius for annular pad: (2/3)(r_out³−r_in³)/(r_out²−r_in²))
       const rotor_front_r_m = (p.rotor_front_d_mm / 2) / 1000;
       const rotor_rear_r_m = (p.rotor_rear_d_mm / 2) / 1000;
       const pad_front_r_out = rotor_front_r_m;
@@ -309,11 +315,13 @@
       const r_eff_F = (2/3) * (pad_front_r_out**3 - pad_front_r_in**3) / (pad_front_r_out**2 - pad_front_r_in**2);
       const r_eff_R = (2/3) * (pad_rear_r_out**3 - pad_rear_r_in**3) / (pad_rear_r_out**2 - pad_rear_r_in**2);
 
+      // Brake torque: T = 2 × μ × P × A × r_eff (2 pads per caliper, 2 calipers per axle → ×2 again)
       const T_F_per_caliper = 2 * mu_pad_front * P_F * A_F_per_caliper * r_eff_F;
       const T_R_per_caliper = 2 * mu_pad_rear * P_R * A_R_per_caliper * r_eff_R;
       const T_F_total = 2 * T_F_per_caliper;
       const T_R_total = 2 * T_R_per_caliper;
 
+      // Tire rolling radius: static (unloaded) then loaded
       const rim_front_d_m = p.tire_front_rim_d_in * IN_TO_M;
       const sidewall_front_h_m = (p.tire_front_aspect_ratio / 100) * (p.tire_front_section_width_mm / 1000);
       const r_tire_front_static = (rim_front_d_m + 2 * sidewall_front_h_m) / 2;
@@ -325,6 +333,7 @@
       let r_tire_front = r_tire_front_static;
       let r_tire_rear = r_tire_rear_static;
 
+      // Loaded radius: r_loaded = r_static − Fz/k (deflection under static load)
       const FzF_static = p.beta * p.m * p.g;
       const FzR_static = (1 - p.beta) * p.m * p.g;
 
@@ -333,12 +342,16 @@
       r_tire_front_loaded = Math.max(r_tire_front_loaded, 0.1);
       r_tire_rear_loaded = Math.max(r_tire_rear_loaded, 0.1);
 
+      // Brake force at wheel = torque / loaded radius (F = T / r)
       const front_max_actual = T_F_total / r_tire_front_loaded;
       const rear_max_actual = T_R_total / r_tire_rear_loaded;
       const front_bias_pct = 100 * front_max_actual / (front_max_actual + rear_max_actual);
 
+      // Decel at which rear axle load goes to zero (wheel lift): d_max = (1−β)/e, with e = h/L
       const d_max = (1 - p.beta) / p.e;
 
+      // Ideal curve: Milliken load-sensitive tire model
+      // μ = μ0 × (Fz / Fz_ref)^(−k); reference load = static load
       const mu0_front = p.front_mu;
       const mu0_rear = p.rear_mu;
       const loadSensitivityFront = 0.08;
@@ -353,11 +366,13 @@
         const d_curve = linspace(0, d_curve_max, 100);
 
         for (let i = 0; i < d_curve.length; i++) {
-          const d = d_curve[i];
+          const d = d_curve[i];  // deceleration in g
 
+          // Vertical load with load transfer: FzF = mg(β + e·d), FzR = mg(1−β−e·d); clamp ≥ 0
           const FzF = Math.max(p.m * p.g * (p.beta + p.e * d), 0);
           const FzR = Math.max(p.m * p.g * (1 - p.beta - p.e * d), 0);
 
+          // Friction coefficient from Milliken: μ = μ0 (Fz/Fz_ref)^(−k)
           const muF = (Fz_ref_front > 0 && FzF > 0)
             ? mu0_front * Math.pow(FzF / Fz_ref_front, -loadSensitivityFront)
             : mu0_front;
@@ -366,10 +381,12 @@
             ? mu0_rear * Math.pow(FzR / Fz_ref_rear, -loadSensitivityRear)
             : mu0_rear;
 
+          // Tire force limits (longitudinal): Fx = μ × Fz
           const FxF_limit = muF * FzF;
           const FxR_limit = muR * FzR;
-          const total_target = d * p.m * p.g;
+          const total_target = d * p.m * p.g;  // target total brake force for this decel
 
+          // Scale only when both axles loaded; at wheel lift use single-axle limit capped by target
           let FxF, FxR;
           if (FzR <= 0) {
             FxR = 0;
@@ -390,12 +407,14 @@
 
       const yMax = niceMax(Math.max(...ideal.map(pt => pt.y), rear_max_actual) * 1.1);
 
+      // Constant-deceleration lines: FxF + FxR = d·m·g (diagonal from (0, d·mg) to (d·mg, 0))
       const decelLines = [];
       for (let d = 0.1; d <= 1.51; d += 0.1) {
         const totalForce = d * p.m * p.g;
         decelLines.push({ d: Math.round(d * 10) / 10, data: [{ x: 0, y: totalForce }, { x: totalForce, y: 0 }] });
       }
 
+      // Current setup line: from origin to (front_max, rear_max), capped at 1.5g total force since higher isn't really relevant
       const totalMax = front_max_actual + rear_max_actual;
       const totalAt15g = 1.5 * p.m * p.g;
       const tCap = totalMax > 0 ? Math.min(1, totalAt15g / totalMax) : 1;
