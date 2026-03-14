@@ -355,8 +355,8 @@
         for (let i = 0; i < d_curve.length; i++) {
           const d = d_curve[i];
 
-          const FzF = p.m * p.g * (p.beta + p.e * d);
-          const FzR = p.m * p.g * (1 - p.beta - p.e * d);
+          const FzF = Math.max(p.m * p.g * (p.beta + p.e * d), 0);
+          const FzR = Math.max(p.m * p.g * (1 - p.beta - p.e * d), 0);
 
           const muF = (Fz_ref_front > 0 && FzF > 0)
             ? mu0_front * Math.pow(FzF / Fz_ref_front, -loadSensitivityFront)
@@ -368,11 +368,21 @@
 
           const FxF_limit = muF * FzF;
           const FxR_limit = muR * FzR;
-          const total_limit = FxF_limit + FxR_limit;
           const total_target = d * p.m * p.g;
-          const scale = total_limit > 0 ? total_target / total_limit : 0;
-          const FxF = scale * FxF_limit;
-          const FxR = scale * FxR_limit;
+
+          let FxF, FxR;
+          if (FzR <= 0) {
+            FxR = 0;
+            FxF = Math.min(FxF_limit, total_target);
+          } else if (FzF <= 0) {
+            FxF = 0;
+            FxR = Math.min(FxR_limit, total_target);
+          } else {
+            const total_limit = FxF_limit + FxR_limit;
+            const scale = total_limit > 0 ? total_target / total_limit : 0;
+            FxF = scale * FxF_limit;
+            FxR = scale * FxR_limit;
+          }
 
           ideal.push({ x: FxF, y: FxR });
         }
