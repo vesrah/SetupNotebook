@@ -277,6 +277,9 @@
       const P_F = F_MC_F / A_MC_F;
       const P_R = F_MC_R / A_MC_R;
 
+      const mu_pad_front = p.front_mu * (1 - 0.03 * (P_F / 1e6));
+      const mu_pad_rear = p.rear_mu * (1 - 0.03 * (P_R / 1e6));
+
       const pist1_front_d_m = p.pist1_front_d_mm / 1000;
       const pist2_front_d_m = p.pist2_front_d_mm / 1000;
       const pist1_rear_d_m = p.pist1_rear_d_mm / 1000;
@@ -306,8 +309,8 @@
       const r_eff_F = (2/3) * (pad_front_r_out**3 - pad_front_r_in**3) / (pad_front_r_out**2 - pad_front_r_in**2);
       const r_eff_R = (2/3) * (pad_rear_r_out**3 - pad_rear_r_in**3) / (pad_rear_r_out**2 - pad_rear_r_in**2);
 
-      const T_F_per_caliper = 2 * p.front_mu * P_F * A_F_per_caliper * r_eff_F;
-      const T_R_per_caliper = 2 * p.rear_mu * P_R * A_R_per_caliper * r_eff_R;
+      const T_F_per_caliper = 2 * mu_pad_front * P_F * A_F_per_caliper * r_eff_F;
+      const T_R_per_caliper = 2 * mu_pad_rear * P_R * A_R_per_caliper * r_eff_R;
       const T_F_total = 2 * T_F_per_caliper;
       const T_R_total = 2 * T_R_per_caliper;
 
@@ -319,30 +322,77 @@
       const sidewall_rear_h_m = (p.tire_rear_aspect_ratio / 100) * (p.tire_rear_section_width_mm / 1000);
       const r_tire_rear_static = (rim_rear_d_m + 2 * sidewall_rear_h_m) / 2;
 
-      const Fz_front_static = p.beta * p.m * p.g;
-      const Fz_rear_static = (1 - p.beta) * p.m * p.g;
-      const delta_r_front = Fz_front_static / p.k_tire_front;
-      const delta_r_rear = Fz_rear_static / p.k_tire_rear;
-      const r_tire_front = r_tire_front_static - delta_r_front;
-      const r_tire_rear = r_tire_rear_static - delta_r_rear;
+      let r_tire_front = r_tire_front_static;
+      let r_tire_rear = r_tire_rear_static;
 
-      const front_max_actual = T_F_total / r_tire_front;
-      const rear_max_actual = T_R_total / r_tire_rear;
+      const FzF_static = p.beta * p.m * p.g;
+      const FzR_static = (1 - p.beta) * p.m * p.g;
+
+      let r_tire_front_loaded = r_tire_front_static - (FzF_static / p.k_tire_front);
+      let r_tire_rear_loaded = r_tire_rear_static - (FzR_static / p.k_tire_rear);
+      r_tire_front_loaded = Math.max(r_tire_front_loaded, 0.1);
+      r_tire_rear_loaded = Math.max(r_tire_rear_loaded, 0.1);
+
+      const front_max_actual = T_F_total / r_tire_front_loaded;
+      const rear_max_actual = T_R_total / r_tire_rear_loaded;
       const front_bias_pct = 100 * front_max_actual / (front_max_actual + rear_max_actual);
 
       const d_max = (1 - p.beta) / p.e;
-      const d_curve = [];
-      for (let i = 0; i <= 100; i++) d_curve.push((i / 100) * d_max);
-      const front_force = d_curve.map(d => d * p.m * p.g * (p.beta + p.e * d));
-      const rear_force = d_curve.map(d => d * p.m * p.g * (1 - p.beta - p.e * d));
 
-      const yMax = niceMax(Math.max(...rear_force, rear_max_actual) * 1.05);
+      const mu0_front = p.front_mu;
+      const mu0_rear = p.rear_mu;
+      const loadSensitivityFront = 0.08;
+      const loadSensitivityRear = 0.08;
+      const Fz_ref_front = p.m * p.g * p.beta;
+      const Fz_ref_rear = p.m * p.g * (1 - p.beta);
+
+      const ideal = [{ x: 0, y: 0 }];
+      const d_curve_max = Math.min(d_max, 1.5);
+
+      if (d_curve_max > 0) {
+        const d_curve = linspace(0, d_curve_max, 100);
+
+        for (let i = 0; i < d_curve.length; i++) {
+          const d = d_curve[i];
+
+          const FzF = p.m * p.g * (p.beta + p.e * d);
+          const FzR = p.m * p.g * (1 - p.beta - p.e * d);
+
+          const muF = (Fz_ref_front > 0 && FzF > 0)
+            ? mu0_front * Math.pow(FzF / Fz_ref_front, -loadSensitivityFront)
+            : mu0_front;
+
+          const muR = (Fz_ref_rear > 0 && FzR > 0)
+            ? mu0_rear * Math.pow(FzR / Fz_ref_rear, -loadSensitivityRear)
+            : mu0_rear;
+
+          const FxF_limit = muF * FzF;
+          const FxR_limit = muR * FzR;
+          const total_limit = FxF_limit + FxR_limit;
+          const total_target = d * p.m * p.g;
+          const scale = total_limit > 0 ? total_target / total_limit : 0;
+          const FxF = scale * FxF_limit;
+          const FxR = scale * FxR_limit;
+
+          ideal.push({ x: FxF, y: FxR });
+        }
+      }
+
+      const yMax = niceMax(Math.max(...ideal.map(pt => pt.y), rear_max_actual) * 1.1);
 
       const decelLines = [];
       for (let d = 0.1; d <= 1.51; d += 0.1) {
         const totalForce = d * p.m * p.g;
         decelLines.push({ d: Math.round(d * 10) / 10, data: [{ x: 0, y: totalForce }, { x: totalForce, y: 0 }] });
       }
+
+      const totalMax = front_max_actual + rear_max_actual;
+      const totalAt15g = 1.5 * p.m * p.g;
+      const tCap = totalMax > 0 ? Math.min(1, totalAt15g / totalMax) : 1;
+      const currentLine = [
+        { x: 0, y: 0 },
+        { x: tCap * front_max_actual, y: tCap * rear_max_actual }
+      ];
 
       return {
         front_max_actual,
@@ -351,10 +401,11 @@
         pedal_travel_in,
         pedal_travel_front_in,
         pedal_travel_rear_in,
-        ideal: front_force.map((f, i) => ({ x: f, y: rear_force[i] })),
-        currentLine: [{ x: 0, y: 0 }, { x: front_max_actual, y: rear_max_actual }],
+        ideal,
+        currentLine,
         decelLines,
-        yMax
+        yMax,
+        totalAt15g
       };
     }
 
@@ -395,7 +446,7 @@
           datasets: [
             { label: 'Safe (below ideal)', data: [], borderWidth: 0, backgroundColor: 'rgba(34,139,34,0.2)', fill: 'origin', tension: 0, pointRadius: 0 },
             { label: 'Ideal curve', data: [], borderColor: '#4a9eff', borderWidth: 2, fill: false, tension: 0.1, pointRadius: 0 },
-            { label: 'Too much rear', data: [], borderWidth: 0, backgroundColor: 'rgba(200,60,60,0.2)', fill: 'end', tension: 0.1, pointRadius: 0 },
+            { label: 'Too much rear', data: [], borderWidth: 0, backgroundColor: 'rgba(200,60,60,0.2)', fill: 'shape', tension: 0.1, pointRadius: 0 },
             { label: 'Current setup', data: [], borderColor: '#e85d04', borderWidth: 2.5, fill: false, pointRadius: 0 }
           ].concat(
             [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0,1.1,1.2,1.3,1.4,1.5].map(d => ({
@@ -469,11 +520,17 @@
 
       ensureChart();
 
-      const xMax = niceMax(out.front_max_actual * 1.15);
+      const idealMaxX = out.ideal.length ? Math.max(...out.ideal.map(p => p.x)) : 0;
+      const xMax = niceMax(Math.max(out.front_max_actual, idealMaxX) * 1.1);
 
-      chart.data.datasets[0].data = out.ideal.length ? [{ x: 0, y: 0 }, ...out.ideal, { x: out.ideal[out.ideal.length - 1].x, y: 0 }] : [];
+      const lastIdeal = out.ideal.length ? out.ideal[out.ideal.length - 1] : null;
+      const totalAt15g = out.totalAt15g || 0;
+
+      chart.data.datasets[0].data = out.ideal.length ? [{ x: 0, y: 0 }, ...out.ideal, { x: lastIdeal.x, y: 0 }] : [];
       chart.data.datasets[1].data = out.ideal;
-      chart.data.datasets[2].data = out.ideal;
+      chart.data.datasets[2].data = out.ideal.length && totalAt15g > 0
+        ? [...out.ideal, { x: 0, y: totalAt15g }, { x: 0, y: 0 }]
+        : [];
       chart.data.datasets[3].data = out.currentLine;
       out.decelLines.forEach((line, i) => {
         chart.data.datasets[4 + i].data = line.data;

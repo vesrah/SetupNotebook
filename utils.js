@@ -248,3 +248,16 @@ function niceMax(value) {
   }
   return Math.ceil(value / 5000) * 5000;
 }
+
+/**
+ * Create an array of n values linearly spaced from a to b (inclusive).
+ * @param {number} a - Start value
+ * @param {number} b - End value
+ * @param {number} n - Number of points
+ * @returns {number[]}
+ */
+function linspace(a, b, n) {
+  if (n <= 0) return [];
+  if (n === 1) return [a];
+  return Array.from({ length: n }, (_, i) => a + (b - a) * i / (n - 1));
+}
