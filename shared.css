@@ -247,17 +247,95 @@ button.secondary {
   height: 560px;
   margin-top: 0.5rem;
 }
-.chart-wrap.chart-compact { height: 360px; }
+.chart-wrap.chart-map {
+  height: 280px;
+}
 
 .chart-wrap canvas { display: block; }
 
-.results {
-  font-size: 0.8rem;
+/* Two-column chart row under a main chart (brake bias, etc.) */
+.mapping-charts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+@media (max-width: 900px) {
+  .mapping-charts {
+    grid-template-columns: 1fr;
+  }
+}
+.mapping-charts h3 {
+  font-size: 0.85rem;
   color: var(--muted);
-  margin-top: 0.75rem;
+  margin: 0 0 0.35rem 0;
+  font-weight: 600;
 }
 
-.results strong { color: var(--text); }
+/* Multi-line metrics block (often below charts) */
+.results-stack {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+.results-stack .result-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--border);
+}
+.results-stack .result-group:last-of-type {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.results-stack .result-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.65rem;
+  align-items: baseline;
+  line-height: 1.5;
+}
+.results-stack .result-sep {
+  color: var(--muted);
+  opacity: 0.45;
+  user-select: none;
+}
+.results-stack .result-detail {
+  opacity: 0.9;
+}
+.results-stack strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* Nested blocks inside a panel (e.g. Brakes vs Tire) */
+.panel-subsection {
+  margin-top: 1rem;
+}
+.panel-subsection:first-of-type {
+  margin-top: 0;
+}
+
+/* Brake bias page: tighter numeric fields */
+.layout-brake-bias .field input,
+.layout-brake-bias .field select {
+  max-width: 120px;
+}
+
+.layout-brake-bias #front-pad-select,
+.layout-brake-bias #rear-pad-select {
+  max-width: min(100%, 19rem);
+  width: 100%;
+}
+
+.layout-brake-bias .field input:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
 
 .summary {
   font-size: 0.85rem;
@@ -266,36 +344,6 @@ button.secondary {
 }
 
 .summary strong { color: var(--text); }
-
-/* Summary cards grid (stats / key values) */
-.summary-cards {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-.summary-cards .card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 1rem;
-}
-.summary-cards .card .value {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--accent);
-}
-.summary-cards .card .label {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-}
-.summary-cards .card .sub {
-  font-size: 0.75rem;
-  color: var(--muted);
-  margin-top: 0.25rem;
-}
 
 table {
   width: 100%;
@@ -322,40 +370,6 @@ tbody td {
 
 tbody tr:last-child td { border-bottom: none; }
 tbody tr:hover { background: rgba(232, 93, 4, 0.05); }
-
-.collapsible summary {
-  list-style: none;
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--muted);
-  cursor: pointer;
-  user-select: none;
-  line-height: 1.4;
-}
-
-.collapsible summary::-webkit-details-marker { display: none; }
-
-.collapsible summary::before {
-  content: '▶';
-  font-size: 0.65rem;
-  color: var(--muted);
-  display: inline-block;
-  transition: transform 0.2s;
-  margin-right: 0.5rem;
-  vertical-align: middle;
-}
-
-.collapsible[open] summary::before {
-  transform: rotate(90deg);
-}
-
-.collapsible textarea,
-.collapsible .hint,
-.collapsible .error {
-  margin-top: 0.75rem;
-}
 
 .toggle-wrap {
   display: inline-flex;

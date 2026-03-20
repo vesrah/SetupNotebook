@@ -21,6 +21,17 @@ const LB_TO_N = 4.44822;
 /** Pounds-mass to kilograms */
 const LB_TO_KG = 0.453592;
 
+/** Pascals per psi (1 lbf/in² = 6894.757… Pa by definition) */
+const PA_PER_PSI = 6894.757293168;
+
+/**
+ * @param {number} pa - Pressure in pascals
+ * @returns {number} Pressure in psi
+ */
+function paToPsi(pa) {
+  return pa / PA_PER_PSI;
+}
+
 // ============================================================================
 // Physics Constants
 // ============================================================================
@@ -178,34 +189,6 @@ function getTireDiameter(tireData) {
   return null;
 }
 
-/**
- * Get tire circumference from a tire data object
- * @param {Object} tireData - Tire data with optional revolutions_per_mile and size properties
- * @returns {number|null} Circumference in mm (rounded), or null if unavailable
- */
-function getTireCircumference(tireData) {
-  const diameter = getTireDiameter(tireData);
-  return diameter ? Math.round(diameter * Math.PI) : null;
-}
-
-/**
- * Get revolutions per mile from a tire data object.
- * Returns stored value if available, otherwise calculates from size.
- * @param {Object} tireData - Tire data with optional revolutions_per_mile and size properties
- * @returns {number|null} Revolutions per mile, or null if unavailable
- */
-function getRevPerMile(tireData) {
-  if (!tireData) return null;
-  if (tireData.revolutions_per_mile) {
-    return tireData.revolutions_per_mile;
-  }
-  const diameter = parseTireDiameter(tireData.size);
-  if (diameter) {
-    return MM_PER_MILE / (diameter * Math.PI);
-  }
-  return null;
-}
-
 // ============================================================================
 // File Utilities
 // ============================================================================
@@ -224,6 +207,103 @@ function downloadJson(data, filename = 'data.json') {
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ============================================================================
+// Brake hydraulics (lotus-brake-bias and similar)
+// ============================================================================
+
+/**
+ * Pedal force → circuit pressures from balance bar and dual master cylinders.
+ * @param {object} p - brake params: pedal_ratio, booster_ratio, balance_bar_split, mc_front_d_in, mc_rear_d_in
+ * @param {number} pedal_force_lb
+ * @returns {{ P_F: number, P_R: number, A_MC_F: number, A_MC_R: number }} Pa and MC piston areas (m²)
+ */
+function circuitPressuresPa(p, pedal_force_lb) {
+  const pedal_force_N = pedal_force_lb * LB_TO_N;
+  const F_total_MC = pedal_force_N * p.pedal_ratio * p.booster_ratio;
+  const F_MC_F = F_total_MC * p.balance_bar_split;
+  const F_MC_R = F_total_MC * (1 - p.balance_bar_split);
+  const mc_front_d_m = p.mc_front_d_in * IN_TO_M;
+  const mc_rear_d_m = p.mc_rear_d_in * IN_TO_M;
+  const A_MC_F = Math.PI * (mc_front_d_m / 2) ** 2;
+  const A_MC_R = Math.PI * (mc_rear_d_m / 2) ** 2;
+  return {
+    P_F: F_MC_F / A_MC_F,
+    P_R: F_MC_R / A_MC_R,
+    A_MC_F,
+    A_MC_R
+  };
+}
+
+/**
+ * @param {object} p - pist*_front_d_mm, pist*_rear_d_mm
+ * @returns {{ A_F_per_caliper: number, A_R_per_caliper: number }} m² per caliper
+ */
+function caliperPistonAreas(p) {
+  const pist1_front_d_m = p.pist1_front_d_mm / 1000;
+  const pist2_front_d_m = p.pist2_front_d_mm / 1000;
+  const pist1_rear_d_m = p.pist1_rear_d_mm / 1000;
+  const pist2_rear_d_m = p.pist2_rear_d_mm / 1000;
+  return {
+    A_F_per_caliper: Math.PI * (pist1_front_d_m / 2) ** 2 + Math.PI * (pist2_front_d_m / 2) ** 2,
+    A_R_per_caliper: Math.PI * (pist1_rear_d_m / 2) ** 2 + Math.PI * (pist2_rear_d_m / 2) ** 2
+  };
+}
+
+/**
+ * Longitudinal brake forces (N) at tires for given circuit pressures (Pa).
+ * @param {object} p - full brake/vehicle params used by lotus-brake-bias compute()
+ * @param {number} P_F - front circuit Pa
+ * @param {number} P_R - rear circuit Pa
+ * @returns {{ front_N: number, rear_N: number }}
+ */
+function brakeWheelForcesFromPressures(p, P_F, P_R) {
+  const mu_pad_front = p.front_mu * (1 - 0.03 * (P_F / 1e6));
+  const mu_pad_rear = p.rear_mu * (1 - 0.03 * (P_R / 1e6));
+  const { A_F_per_caliper, A_R_per_caliper } = caliperPistonAreas(p);
+
+  const rotor_front_r_m = (p.rotor_front_d_mm / 2) / 1000;
+  const rotor_rear_r_m = (p.rotor_rear_d_mm / 2) / 1000;
+  const pad_front_r_out = rotor_front_r_m;
+  const pad_front_r_in = rotor_front_r_m - (p.pad_front_height_mm / 1000);
+  const pad_rear_r_out = rotor_rear_r_m;
+  const pad_rear_r_in = rotor_rear_r_m - (p.pad_rear_height_mm / 1000);
+
+  const r_eff_F = (2/3) * (pad_front_r_out**3 - pad_front_r_in**3) / (pad_front_r_out**2 - pad_front_r_in**2);
+  const r_eff_R = (2/3) * (pad_rear_r_out**3 - pad_rear_r_in**3) / (pad_rear_r_out**2 - pad_rear_r_in**2);
+
+  const T_F_per_caliper = 2 * mu_pad_front * P_F * A_F_per_caliper * r_eff_F;
+  const T_R_per_caliper = 2 * mu_pad_rear * P_R * A_R_per_caliper * r_eff_R;
+  const T_F_total = 2 * T_F_per_caliper;
+  const T_R_total = 2 * T_R_per_caliper;
+
+  const rim_front_d_m = p.tire_front_rim_d_in * IN_TO_M;
+  const sidewall_front_h_m = (p.tire_front_aspect_ratio / 100) * (p.tire_front_section_width_mm / 1000);
+  const r_tire_front_static = (rim_front_d_m + 2 * sidewall_front_h_m) / 2;
+  const rim_rear_d_m = p.tire_rear_rim_d_in * IN_TO_M;
+  const sidewall_rear_h_m = (p.tire_rear_aspect_ratio / 100) * (p.tire_rear_section_width_mm / 1000);
+  const r_tire_rear_static = (rim_rear_d_m + 2 * sidewall_rear_h_m) / 2;
+
+  const FzF_static = p.beta * p.m * p.g;
+  const FzR_static = (1 - p.beta) * p.m * p.g;
+  const r_tire_front_loaded = Math.max(r_tire_front_static - (FzF_static / p.k_tire_front), 0.1);
+  const r_tire_rear_loaded = Math.max(r_tire_rear_static - (FzR_static / p.k_tire_rear), 0.1);
+
+  return {
+    front_N: T_F_total / r_tire_front_loaded,
+    rear_N: T_R_total / r_tire_rear_loaded
+  };
+}
+
+/**
+ * Hydraulic gain (psi per lb pedal) for each circuit at current balance / MC geometry.
+ * @param {object} p - same params as circuitPressuresPa
+ * @returns {{ front: number, rear: number }}
+ */
+function hydraulicPsiPerLb(p) {
+  const { P_F, P_R } = circuitPressuresPa(p, 1);
+  return { front: paToPsi(P_F), rear: paToPsi(P_R) };
 }
 
 // ============================================================================

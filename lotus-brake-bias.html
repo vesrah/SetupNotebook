@@ -9,18 +9,13 @@
   <script src="utils.js"></script>
   <script src="setup.js"></script>
   <link rel="stylesheet" href="shared.css">
-  <style>
-    .field input, .field select { max-width: 120px; }
-    .brake-section { margin-top: 1rem; }
-    .brake-section:first-of-type { margin-top: 0; }
-  </style>
 </head>
 <body>
   <div class="header">
     <a href="index.html" class="back-link">Index</a>
     <h1>Brake Bias</h1>
   </div>
-  <div class="layout wide">
+  <div class="layout wide layout-brake-bias">
     <div class="panel">
       <h2>Vehicle</h2>
       <div class="inputs">
@@ -74,11 +69,10 @@
           <input type="number" id="pad-takeup-mm" value="0.4" step="0.05" min="0.1" max="2" title="Running clearance per pad side; affects pedal travel">
         </div>
       </div>
-      <p class="hint">Pad take-up is the displacement to close running clearance (typical 0.3–0.5 mm per side). Larger caliper pistons need more fluid and increase pedal travel.</p>
     </div>
     <div class="panel">
       <h2>Front</h2>
-      <div class="brake-section">
+      <div class="panel-subsection">
         <h3>Brakes</h3>
         <div class="inputs">
           <div class="field field-preset">
@@ -104,13 +98,16 @@
             <input type="number" id="pad-front-height-mm" value="44" step="0.1" min="0">
           </div>
           <div class="field">
-            <label for="front-mu">Pad Mu</label>
-            <input type="number" id="front-mu" value="0.47" step="0.01" min="0">
+            <label for="front-pad-select">Brake pads</label>
+            <select id="front-pad-select"></select>
+          </div>
+          <div class="field">
+            <label for="front-mu">Pad μ</label>
+            <input type="number" id="front-mu" value="0.42" step="0.01" min="0" disabled title="Choose “Custom μ” in Brake pads to edit">
           </div>
         </div>
-        <p class="hint">Example pad Mu: Cobalt XR4 = 0.42, XR3 = 0.47, XR2 = 0.54.</p>
       </div>
-      <div class="brake-section">
+      <div class="panel-subsection">
         <h3>Tire</h3>
         <div class="inputs">
           <div class="field">
@@ -134,7 +131,7 @@
     </div>
     <div class="panel">
       <h2>Rear</h2>
-      <div class="brake-section">
+      <div class="panel-subsection">
         <h3>Brakes</h3>
         <div class="inputs">
           <div class="field field-preset">
@@ -160,13 +157,16 @@
             <input type="number" id="pad-rear-height-mm" value="47.3" step="0.1" min="0">
           </div>
           <div class="field">
-            <label for="rear-mu">Pad Mu</label>
-            <input type="number" id="rear-mu" value="0.42" step="0.01" min="0">
+            <label for="rear-pad-select">Brake pads</label>
+            <select id="rear-pad-select"></select>
+          </div>
+          <div class="field">
+            <label for="rear-mu">Pad μ</label>
+            <input type="number" id="rear-mu" value="0.42" step="0.01" min="0" disabled title="Choose “Custom μ” in Brake pads to edit">
           </div>
         </div>
-        <p class="hint">Example pad Mu: Cobalt XR4 = 0.42, XR3 = 0.47, XR2 = 0.54.</p>
       </div>
-      <div class="brake-section">
+      <div class="panel-subsection">
         <h3>Tire</h3>
         <div class="inputs">
           <div class="field">
@@ -189,10 +189,24 @@
       </div>
     </div>
     <div class="panel">
-      <p class="results" id="results"></p>
       <div class="chart-wrap">
         <canvas id="chart"></canvas>
       </div>
+      <div class="mapping-charts">
+        <div>
+          <h3>Pedal force to line pressure</h3>
+          <div class="chart-wrap chart-map">
+            <canvas id="chart-pedal-pressure"></canvas>
+          </div>
+        </div>
+        <div>
+          <h3>Front line pressure to deceleration</h3>
+          <div class="chart-wrap chart-map">
+            <canvas id="chart-pressure-decel"></canvas>
+          </div>
+        </div>
+      </div>
+      <div id="results" class="results-stack" aria-live="polite"></div>
     </div>
   </div>
 
@@ -212,6 +226,55 @@
       { name: 'AP Racing 44mm (Stock Front)', pist1_rear_d_mm: 44.4, pist2_rear_d_mm: 0, rotor_rear_d_mm: 288, pad_rear_height_mm: 47.3, rear_mu: 0.42 },
       { name: 'Wilwood 120-11782', pist1_rear_d_mm: 28.448, pist2_rear_d_mm: 28.448, rotor_rear_d_mm: 288, pad_rear_height_mm: 44, rear_mu: 0.42 }
     ];
+
+    /** Upper end of the “pressure to deceleration” chart y-axis (g). */
+    const DECEL_CHART_Y_MAX_G = 2.0;
+    const PRESSURE_DECEL_CHART_MAX_PSI = 1500;
+
+    const BRAKE_PAD_CUSTOM_VALUE = 'custom';
+
+    const BRAKE_PADS_PRESETS = [
+      { id: 'xr2', name: 'Cobalt XR2', mu: 0.54 },
+      { id: 'xr3', name: 'Cobalt XR3', mu: 0.47 },
+      { id: 'xr4', name: 'Cobalt XR4', mu: 0.42 }
+    ];
+
+    function populateBrakePadSelect(selectEl) {
+      if (!selectEl) return;
+      selectEl.innerHTML = '';
+      BRAKE_PADS_PRESETS.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.name;
+        selectEl.appendChild(opt);
+      });
+      const customOpt = document.createElement('option');
+      customOpt.value = BRAKE_PAD_CUSTOM_VALUE;
+      customOpt.textContent = 'Custom μ';
+      selectEl.appendChild(customOpt);
+    }
+
+    function brakePadPresetById(id) {
+      return BRAKE_PADS_PRESETS.find(p => p.id === id);
+    }
+
+    function syncPadUiFromMu(isFront) {
+      const prefix = isFront ? 'front' : 'rear';
+      const inp = $(prefix + '-mu');
+      const sel = $(prefix + '-pad-select');
+      if (!inp || !sel) return;
+      const mu = parseFloat(inp.value);
+      if (!Number.isFinite(mu)) return;
+      const match = BRAKE_PADS_PRESETS.find(o => Math.abs(o.mu - mu) < 1e-6);
+      if (match) {
+        sel.value = match.id;
+        inp.value = String(match.mu);
+        inp.disabled = true;
+      } else {
+        sel.value = BRAKE_PAD_CUSTOM_VALUE;
+        inp.disabled = false;
+      }
+    }
 
     function getParams() {
       const m = num('m') * LB_TO_KG;
@@ -264,33 +327,8 @@
     }
 
     function compute(p) {
-      // Pedal to master cylinder
-      const pedal_force_N = p.pedal_force_lb * LB_TO_N;
-      const F_total_MC = pedal_force_N * p.pedal_ratio * p.booster_ratio;
-      const F_MC_F = F_total_MC * p.balance_bar_split;
-      const F_MC_R = F_total_MC * (1 - p.balance_bar_split);
-
-      // Hydraulic pressure at each circuit (P = F / A)
-      const mc_front_d_m = p.mc_front_d_in * IN_TO_M;
-      const mc_rear_d_m = p.mc_rear_d_in * IN_TO_M;
-      const A_MC_F = Math.PI * (mc_front_d_m / 2) ** 2;
-      const A_MC_R = Math.PI * (mc_rear_d_m / 2) ** 2;
-
-      const P_F = F_MC_F / A_MC_F;
-      const P_R = F_MC_R / A_MC_R;
-
-      // Pad friction drops ~3% per MPa (pressure-dependent mu)
-      const mu_pad_front = p.front_mu * (1 - 0.03 * (P_F / 1e6));
-      const mu_pad_rear = p.rear_mu * (1 - 0.03 * (P_R / 1e6));
-
-      // Caliper piston area (both pistons per caliper, two calipers per axle)
-      const pist1_front_d_m = p.pist1_front_d_mm / 1000;
-      const pist2_front_d_m = p.pist2_front_d_mm / 1000;
-      const pist1_rear_d_m = p.pist1_rear_d_mm / 1000;
-      const pist2_rear_d_m = p.pist2_rear_d_mm / 1000;
-
-      const A_F_per_caliper = Math.PI * (pist1_front_d_m / 2) ** 2 + Math.PI * (pist2_front_d_m / 2) ** 2;
-      const A_R_per_caliper = Math.PI * (pist1_rear_d_m / 2) ** 2 + Math.PI * (pist2_rear_d_m / 2) ** 2;
+      const { P_F, P_R, A_MC_F, A_MC_R } = circuitPressuresPa(p, p.pedal_force_lb);
+      const { A_F_per_caliper, A_R_per_caliper } = caliperPistonAreas(p);
 
       // Pedal travel to take up pad clearance (fluid volume = 2 calipers × area × stroke)
       const stroke_m = (p.pad_takeup_mm * 2) / 1000;
@@ -304,47 +342,7 @@
       const pedal_travel_front_in = (mc_disp_front_m * p.pedal_ratio) / IN_TO_M;
       const pedal_travel_rear_in = (mc_disp_rear_m * p.pedal_ratio) / IN_TO_M;
 
-      // Rotor effective radius (mean radius for annular pad: (2/3)(r_out³−r_in³)/(r_out²−r_in²))
-      const rotor_front_r_m = (p.rotor_front_d_mm / 2) / 1000;
-      const rotor_rear_r_m = (p.rotor_rear_d_mm / 2) / 1000;
-      const pad_front_r_out = rotor_front_r_m;
-      const pad_front_r_in = rotor_front_r_m - (p.pad_front_height_mm / 1000);
-      const pad_rear_r_out = rotor_rear_r_m;
-      const pad_rear_r_in = rotor_rear_r_m - (p.pad_rear_height_mm / 1000);
-
-      const r_eff_F = (2/3) * (pad_front_r_out**3 - pad_front_r_in**3) / (pad_front_r_out**2 - pad_front_r_in**2);
-      const r_eff_R = (2/3) * (pad_rear_r_out**3 - pad_rear_r_in**3) / (pad_rear_r_out**2 - pad_rear_r_in**2);
-
-      // Brake torque: T = 2 × μ × P × A × r_eff (2 pads per caliper, 2 calipers per axle → ×2 again)
-      const T_F_per_caliper = 2 * mu_pad_front * P_F * A_F_per_caliper * r_eff_F;
-      const T_R_per_caliper = 2 * mu_pad_rear * P_R * A_R_per_caliper * r_eff_R;
-      const T_F_total = 2 * T_F_per_caliper;
-      const T_R_total = 2 * T_R_per_caliper;
-
-      // Tire rolling radius: static (unloaded) then loaded
-      const rim_front_d_m = p.tire_front_rim_d_in * IN_TO_M;
-      const sidewall_front_h_m = (p.tire_front_aspect_ratio / 100) * (p.tire_front_section_width_mm / 1000);
-      const r_tire_front_static = (rim_front_d_m + 2 * sidewall_front_h_m) / 2;
-
-      const rim_rear_d_m = p.tire_rear_rim_d_in * IN_TO_M;
-      const sidewall_rear_h_m = (p.tire_rear_aspect_ratio / 100) * (p.tire_rear_section_width_mm / 1000);
-      const r_tire_rear_static = (rim_rear_d_m + 2 * sidewall_rear_h_m) / 2;
-
-      let r_tire_front = r_tire_front_static;
-      let r_tire_rear = r_tire_rear_static;
-
-      // Loaded radius: r_loaded = r_static − Fz/k (deflection under static load)
-      const FzF_static = p.beta * p.m * p.g;
-      const FzR_static = (1 - p.beta) * p.m * p.g;
-
-      let r_tire_front_loaded = r_tire_front_static - (FzF_static / p.k_tire_front);
-      let r_tire_rear_loaded = r_tire_rear_static - (FzR_static / p.k_tire_rear);
-      r_tire_front_loaded = Math.max(r_tire_front_loaded, 0.1);
-      r_tire_rear_loaded = Math.max(r_tire_rear_loaded, 0.1);
-
-      // Brake force at wheel = torque / loaded radius (F = T / r)
-      const front_max_actual = T_F_total / r_tire_front_loaded;
-      const rear_max_actual = T_R_total / r_tire_rear_loaded;
+      const { front_N: front_max_actual, rear_N: rear_max_actual } = brakeWheelForcesFromPressures(p, P_F, P_R);
       const front_bias_pct = 100 * front_max_actual / (front_max_actual + rear_max_actual);
 
       // Decel at which rear axle load goes to zero (wheel lift): d_max = (1−β)/e, with e = h/L
@@ -423,6 +421,9 @@
         { x: tCap * front_max_actual, y: tCap * rear_max_actual }
       ];
 
+      const line_pressure_front_psi = paToPsi(P_F);
+      const line_pressure_rear_psi = paToPsi(P_R);
+
       return {
         front_max_actual,
         rear_max_actual,
@@ -430,6 +431,8 @@
         pedal_travel_in,
         pedal_travel_front_in,
         pedal_travel_rear_in,
+        line_pressure_front_psi,
+        line_pressure_rear_psi,
         ideal,
         currentLine,
         decelLines,
@@ -530,17 +533,122 @@
       return chart;
     }
 
+    let chartPedalPressure = null;
+    let chartPressureDecel = null;
+
+    function ensureChartPedalPressure() {
+      if (chartPedalPressure) return chartPedalPressure;
+      const ctx = $('chart-pedal-pressure').getContext('2d');
+      chartPedalPressure = new Chart(ctx, {
+        type: 'line',
+        data: {
+          datasets: [
+            { label: 'Front circuit', data: [], borderColor: '#4a9eff', borderWidth: 2, fill: false, tension: 0, pointRadius: 0 },
+            { label: 'Rear circuit', data: [], borderColor: '#c77dff', borderWidth: 2, fill: false, tension: 0, pointRadius: 0 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { labels: { color: '#888', font: { size: 10 } } },
+            tooltip: {
+              callbacks: {
+                label: (item) => item.dataset.label + ': ' + item.parsed.y.toFixed(0) + ' psi @ ' + item.parsed.x.toFixed(0) + ' lb pedal'
+              }
+            }
+          },
+          scales: {
+            x: {
+              type: 'linear',
+              title: { display: true, text: 'Pedal force (lb)', color: '#888', font: { size: 10 } },
+              grid: { color: '#333' },
+              min: 0,
+              ticks: { color: '#888' }
+            },
+            y: {
+              type: 'linear',
+              title: { display: true, text: 'Line pressure (psi)', color: '#888', font: { size: 10 } },
+              grid: { color: '#333' },
+              min: 0,
+              ticks: { color: '#888' }
+            }
+          }
+        }
+      });
+      return chartPedalPressure;
+    }
+
+    function ensureChartPressureDecel() {
+      if (chartPressureDecel) return chartPressureDecel;
+      const ctx = $('chart-pressure-decel').getContext('2d');
+      chartPressureDecel = new Chart(ctx, {
+        type: 'line',
+        data: {
+          datasets: [
+            { label: 'Brake capacity', data: [], borderColor: '#e85d04', borderWidth: 2, fill: false, tension: 0, pointRadius: 0 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { labels: { color: '#888', font: { size: 10 } } },
+            tooltip: {
+              callbacks: {
+                label: (item) => item.dataset.label + ': ' + item.parsed.y.toFixed(2) + ' g @ ' + item.parsed.x.toFixed(0) + ' psi front'
+              }
+            }
+          },
+          scales: {
+            x: {
+              type: 'linear',
+              title: { display: true, text: 'Front line pressure (psi)', color: '#888', font: { size: 10 } },
+              grid: { color: '#333' },
+              min: 0,
+              max: PRESSURE_DECEL_CHART_MAX_PSI,
+              ticks: {
+                color: '#888',
+                stepSize: 50
+              }
+            },
+            y: {
+              type: 'linear',
+              title: { display: true, text: 'Deceleration (g)', color: '#888', font: { size: 10 } },
+              grid: { color: '#333' },
+              min: 0,
+              max: DECEL_CHART_Y_MAX_G,
+              ticks: { color: '#888' }
+            }
+          }
+        }
+      });
+      return chartPressureDecel;
+    }
+
     function update() {
       const p = getParams();
       const cacheKey = JSON.stringify(p);
       const out = compute(p);
 
       $('results').innerHTML =
-        'Front max brake force: <strong>' + Math.round(out.front_max_actual) + ' N</strong> &nbsp; ' +
-        'Rear max brake force: <strong>' + Math.round(out.rear_max_actual) + ' N</strong> &nbsp; ' +
-        'Front brake bias: <strong>' + out.front_bias_pct.toFixed(1) + ' %</strong>' +
-        ' &nbsp; | &nbsp; Pedal travel (take-up): <strong>' + out.pedal_travel_in.toFixed(2) + ' in</strong>' +
-        ' (front ' + out.pedal_travel_front_in.toFixed(2) + ', rear ' + out.pedal_travel_rear_in.toFixed(2) + ' in)';
+        '<div class="result-group">' +
+          '<div class="result-row">' +
+            '<span>Front max brake force: <strong>' + Math.round(out.front_max_actual) + ' N</strong></span>' +
+            '<span class="result-sep" aria-hidden="true">·</span>' +
+            '<span>Rear max brake force: <strong>' + Math.round(out.rear_max_actual) + ' N</strong></span>' +
+            '<span class="result-sep" aria-hidden="true">·</span>' +
+            '<span>Front brake bias: <strong>' + out.front_bias_pct.toFixed(1) + ' %</strong></span>' +
+          '</div>' +
+          '<div class="result-row">' +
+            '<span>Line pressure: <strong>' + out.line_pressure_front_psi.toFixed(0) + ' psi</strong> front, ' +
+            '<strong>' + out.line_pressure_rear_psi.toFixed(0) + ' psi</strong> rear</span>' +
+          '</div>' +
+          '<div class="result-row">' +
+            '<span>Pedal travel (take-up): <strong>' + out.pedal_travel_in.toFixed(2) + ' in</strong>' +
+            ' <span class="result-detail">(front ' + out.pedal_travel_front_in.toFixed(2) + ' in, rear ' + out.pedal_travel_rear_in.toFixed(2) + ' in)</span></span>' +
+          '</div>' +
+        '</div>';
 
       if (chartCache === cacheKey && chart) {
         return;
@@ -568,6 +676,48 @@
       chart.options.scales.x.max = xMax;
       chart.options.scales.y.max = out.yMax;
       chart.update('none');
+
+      ensureChartPedalPressure();
+      ensureChartPressureDecel();
+
+      const maxPedal = Math.max(120, p.pedal_force_lb * 1.25, 10);
+      const fPedal = linspace(0, maxPedal, 30);
+      const dataPedalFront = fPedal.map(f => {
+        const { P_F } = circuitPressuresPa(p, f);
+        return { x: f, y: paToPsi(P_F) };
+      });
+      const dataPedalRear = fPedal.map(f => {
+        const { P_R } = circuitPressuresPa(p, f);
+        return { x: f, y: paToPsi(P_R) };
+      });
+      chartPedalPressure.data.datasets[0].data = dataPedalFront;
+      chartPedalPressure.data.datasets[1].data = dataPedalRear;
+      chartPedalPressure.options.scales.x.max = maxPedal;
+      const maxPsiPlot = Math.max(
+        ...dataPedalFront.map(d => d.y),
+        ...dataPedalRear.map(d => d.y),
+        50
+      );
+      chartPedalPressure.options.scales.y.max = niceMax(maxPsiPlot * 1.08);
+
+      const gain = hydraulicPsiPerLb(p);
+      const psiPerLbF = Math.max(gain.front, 1e-6);
+      const psiPts = linspace(0, PRESSURE_DECEL_CHART_MAX_PSI, 151);
+      const dataBrakeDecel = [];
+      for (let i = 0; i < psiPts.length; i++) {
+        const frontPsi = psiPts[i];
+        const fp = frontPsi / psiPerLbF;
+        const { P_F: pF, P_R: pR } = circuitPressuresPa(p, fp);
+        const { front_N: fN, rear_N: rN } = brakeWheelForcesFromPressures(p, pF, pR);
+        const dB = (fN + rN) / (p.m * p.g);
+        dataBrakeDecel.push({ x: frontPsi, y: dB });
+      }
+      chartPressureDecel.data.datasets[0].data = dataBrakeDecel;
+      chartPressureDecel.options.scales.x.max = PRESSURE_DECEL_CHART_MAX_PSI;
+      // Fixed g scale; tire model may exceed 1.8 g—curves clip at the top of the chart when they do.
+      chartPressureDecel.options.scales.y.max = DECEL_CHART_Y_MAX_G;
+      chartPedalPressure.update('none');
+      chartPressureDecel.update('none');
     }
 
     function applyFrontPreset(preset) {
@@ -576,6 +726,7 @@
       $('rotor-front-d-mm').value = preset.rotor_front_d_mm;
       $('pad-front-height-mm').value = preset.pad_front_height_mm;
       $('front-mu').value = preset.front_mu;
+      syncPadUiFromMu(true);
     }
 
     function applyRearPreset(preset) {
@@ -584,6 +735,7 @@
       $('rotor-rear-d-mm').value = preset.rotor_rear_d_mm;
       $('pad-rear-height-mm').value = preset.pad_rear_height_mm;
       $('rear-mu').value = preset.rear_mu;
+      syncPadUiFromMu(false);
     }
 
     let applyingPreset = false;
@@ -602,6 +754,9 @@
       opt.textContent = p.name;
       rearPresetEl.appendChild(opt);
     });
+
+    populateBrakePadSelect($('front-pad-select'));
+    populateBrakePadSelect($('rear-pad-select'));
 
     frontPresetEl.value = '1';
     rearPresetEl.value = '0';
@@ -624,6 +779,27 @@
     });
 
     const debouncedUpdate = debounce(update, 300);
+
+    function onPadSelectChange(isFront) {
+      const prefix = isFront ? 'front' : 'rear';
+      const sel = $(prefix + '-pad-select');
+      const inp = $(prefix + '-mu');
+      if (!sel || !inp) return;
+      if (sel.value === BRAKE_PAD_CUSTOM_VALUE) {
+        inp.disabled = false;
+      } else {
+        const pad = brakePadPresetById(sel.value);
+        if (pad) inp.value = String(pad.mu);
+        inp.disabled = true;
+      }
+      debouncedUpdate();
+    }
+
+    $('front-pad-select').addEventListener('change', () => onPadSelectChange(true));
+    $('rear-pad-select').addEventListener('change', () => onPadSelectChange(false));
+    $('front-mu').addEventListener('input', () => syncPadUiFromMu(true));
+    $('rear-mu').addEventListener('input', () => syncPadUiFromMu(false));
+
     const frontPresetFieldIds = ['pist1-front-d-mm', 'pist2-front-d-mm', 'rotor-front-d-mm', 'pad-front-height-mm'];
     const rearPresetFieldIds = ['pist1-rear-d-mm', 'pist2-rear-d-mm', 'rotor-rear-d-mm', 'pad-rear-height-mm'];
     frontPresetFieldIds.forEach(id => {
@@ -730,6 +906,9 @@
         const matchIdx = findMatchingRearPreset(rb);
         rearPresetEl.value = matchIdx >= 0 ? matchIdx : '';
       }
+
+      syncPadUiFromMu(true);
+      syncPadUiFromMu(false);
     }
 
     function findMatchingFrontPreset(brake) {
